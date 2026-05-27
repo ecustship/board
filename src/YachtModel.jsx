@@ -24,7 +24,7 @@ function EngineModelInner({ faultAlarm }) {
     box.getCenter(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const targetSize = 17.24;
+    const targetSize = 8.62;
     const scale = targetSize / maxDim;
 
     // Apply scale then re-measure to compute the scaled center precisely
