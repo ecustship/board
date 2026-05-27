@@ -569,7 +569,7 @@ const InnerDashboard = () => {
                       </div>
                     </div>
                     <span className="text-[8px] uppercase tracking-tighter mt-0.5 text-center max-w-[5.5rem] leading-tight">
-                      {t.systemOnline}
+                      {t.operatingAngle}
                     </span>
                   </div>
                   <div className="flex flex-col items-center">
@@ -604,7 +604,7 @@ const InnerDashboard = () => {
                       </div>
                     </div>
                     <span className="text-[8px] uppercase tracking-tighter mt-0.5 text-center max-w-[5.5rem] leading-tight">
-                      {t.cpuLoad}
+                      {t.propulsionPower}
                     </span>
                   </div>
                 </div>
@@ -807,7 +807,7 @@ const InnerDashboard = () => {
                     <span className="block text-[10px] uppercase tracking-widest text-tertiary mb-2">
                       {t.activeAlarms}
                     </span>
-                    <div className="space-y-1.5">
+                      <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium opacity-80">{t.fireAlarms}</span>
                         <div className="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_rgba(187,22,31,0.6)]" />

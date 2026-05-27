@@ -18,7 +18,7 @@ const TrendIcon = () => (
   </svg>
 );
 
-const RingProgress = ({ value, max = 1 }) => {
+const RingProgress = ({ value, max = 1, displayValue, displayUnit }) => {
   const r = 18;
   const circ = 2 * Math.PI * r;
   const filled = circ * Math.min(value / max, 1) * 0.75;
@@ -39,9 +39,14 @@ const RingProgress = ({ value, max = 1 }) => {
         strokeDashoffset={-startOffset}
         transform="rotate(-135 24 24)"
       />
-      <text x="24" y="28" textAnchor="middle" fontSize="8" fill="#374151" fontWeight="bold">
-        {(value * 100).toFixed(0)}%
+      <text x="24" y="26" textAnchor="middle" fontSize="8" fill="#374151" fontWeight="bold">
+        {displayValue ?? `${(value * 100).toFixed(0)}%`}
       </text>
+      {displayUnit && (
+        <text x="24" y="35" textAnchor="middle" fontSize="6" fill="#6b7280" fontWeight="bold">
+          {displayUnit}
+        </text>
+      )}
     </svg>
   );
 };
@@ -171,14 +176,16 @@ const EngineSystems = () => {
     { id: "airIntake", top: "25%", left: "75%", label: t.airIntake },
   ];
 
-  return (
-    <div className="flex-1 min-h-0 overflow-hidden relative bg-[#F5F6F8] dark:bg-background">
+  // Replace the ring's percent readout with the propulsion-power number (like Main Engine)
+  const propulsionPower = engineData[activeEngine]?.power || 0;
 
-      {/* ─── Main Content ─────────────────────────────────── */}
-      <main className="relative w-full h-[calc(100vh-11rem)] mt-3 px-6 pr-8">
+  return (
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#F5F6F8] dark:bg-background">
+
+      <main className="flex flex-row flex-1 gap-4 relative items-stretch" style={{ minHeight: 0 }}>
 
         {/* 3.2 Left Controls */}
-        <aside className="absolute left-6 top-0 bottom-[8rem] flex flex-col gap-6 z-30 justify-center">
+        <aside className="flex flex-col w-28 xl:w-32 shrink-0 space-y-2 z-20 justify-center" style={{ minHeight: 0 }}>
           {/* Engine Selection */}
           <div className="flex flex-col gap-2">
             {engines.map((eng) => (
@@ -226,93 +233,103 @@ const EngineSystems = () => {
           </div>
         </aside>
 
-        {/* 3.3 Center 3D Area - Higher z-index than bottom bar */}
-        <section className="absolute inset-0 left-[20rem] right-[16rem] z-10 flex items-center justify-center" style={{ minHeight: '300px' }}>
-          <div className="relative w-full h-full flex items-center justify-center">
+        {/* 3.3 Center 3D Area */}
+        <section
+          className="flex-1 flex flex-col relative overflow-hidden z-10"
+          style={{ minHeight: 0 }}
+        >
+          <div className="w-full flex-1" style={{ minHeight: '300px' }}>
             <EngineSystemsModel />
-
-            {/* Interactive Hotspots */}
-            {hotspots.map((hotspot) => (
-              <button
-                key={hotspot.id}
-                onClick={() => handleSystemClick(hotspot.id)}
-                className={`absolute w-14 h-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all duration-300 cursor-pointer ${
-                  activeSystem === hotspot.id
-                    ? "border-blue-500 bg-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.6)]"
-                    : "border-transparent hover:border-blue-400/60 hover:bg-blue-400/10"
-                } ${activeSystem === null || activeSystem !== hotspot.id ? "animate-pulse" : ""}`}
-                style={{ top: hotspot.top, left: hotspot.left }}
-                title={hotspot.label}
-              >
-                <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold uppercase tracking-wider ${
-                  activeSystem === hotspot.id ? "text-white" : "text-white/70"
-                }`}>
-                  {hotspot.label.split(" ")[0]}
-                </span>
-              </button>
-            ))}
-
-            {/* Glassmorphism Floating Modal - High z-index, appears above bottom bar */}
-            <AnimatePresence mode="wait">
-              {activeSystem && showParamCard && (
-                <motion.div
-                  key={activeSystem}
-                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.8, y: -10 }}
-                  transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 backdrop-blur-md bg-white/80 dark:bg-surface-container-low/90 border border-white/60 dark:border-dark-surface-variant shadow-2xl rounded-xl p-4 w-56 z-50"
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shadow-[0_0_6px_#3b82f6]" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                      {currentMeta?.systemName}
-                    </h3>
-                    <button
-                      onClick={() => handleSystemClick(activeSystem)}
-                      className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {params.map((param, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-[9px] text-gray-400 uppercase tracking-wider">{param.label}</span>
-                          <div className="flex items-baseline gap-1 mt-0.5">
-                            <span className="text-lg font-bold text-[#0A0A0A]">{param.value}</span>
-                            <span className="text-[10px] text-gray-400 font-medium">{param.unit}</span>
-                            {param.trend === "up" && <TrendIcon />}
-                          </div>
-                        </div>
-                        {param.ring !== undefined && <RingProgress value={param.ring} />}
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
+
+          {/* Interactive Hotspots */}
+          {hotspots.map((hotspot) => (
+            <button
+              key={hotspot.id}
+              onClick={() => handleSystemClick(hotspot.id)}
+              className={`absolute w-14 h-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all duration-300 cursor-pointer ${
+                activeSystem === hotspot.id
+                  ? "border-blue-500 bg-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+                  : "border-transparent hover:border-blue-400/60 hover:bg-blue-400/10"
+              } ${activeSystem === null || activeSystem !== hotspot.id ? "animate-pulse" : ""}`}
+              style={{ top: hotspot.top, left: hotspot.left }}
+              title={hotspot.label}
+            >
+              <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold uppercase tracking-wider ${
+                activeSystem === hotspot.id ? "text-white" : "text-white/70"
+              }`}>
+                {hotspot.label.split(" ")[0]}
+              </span>
+            </button>
+          ))}
+
+          {/* Glassmorphism Floating Modal */}
+          <AnimatePresence mode="wait">
+            {activeSystem && showParamCard && (
+              <motion.div
+                key={activeSystem}
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: -10 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                className="absolute top-1/2 right-4 -translate-y-1/2 backdrop-blur-md bg-white/80 dark:bg-surface-container-low/90 border border-white/60 dark:border-dark-surface-variant shadow-2xl rounded-xl p-4 w-56 z-50"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shadow-[0_0_6px_#3b82f6]" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                    {currentMeta?.systemName}
+                  </h3>
+                  <button
+                    onClick={() => handleSystemClick(activeSystem)}
+                    className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {params.map((param, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-gray-400 uppercase tracking-wider">{param.label}</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-lg font-bold text-[#0A0A0A]">{param.value}</span>
+                          <span className="text-[10px] text-gray-400 font-medium">{param.unit}</span>
+                          {param.trend === "up" && <TrendIcon />}
+                        </div>
+                      </div>
+                      {param.ring !== undefined && (
+                        <RingProgress
+                          value={param.ring}
+                          max={1}
+                          displayValue={propulsionPower.toLocaleString()}
+                          displayUnit="kW"
+                        />
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
-        {/* 3.4 Right Status Panels — 3 compact cards with animation */}
-        <aside className="absolute right-6 top-0 bottom-[8rem] flex flex-col gap-3 z-30 justify-center">
+        {/* 3.4 Right Status Panels */}
+        <aside className="w-48 xl:w-52 shrink-0 flex flex-col gap-3 z-20 justify-start overflow-y-auto max-h-full" style={{ minHeight: 0 }}>
           {/* Card 1: Power Output */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-[#121212] dark:bg-surface-container-lowest rounded-xl p-3 shadow-xl w-44"
+            className="bg-[#121212] dark:bg-surface-container-lowest rounded-xl p-3 shadow-xl w-full"
           >
             <div className="flex items-center gap-2 mb-2">
               <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_6px_#22c55e] ${engineData[activeEngine]?.status === 'running' ? 'bg-green-500' : 'bg-yellow-500'}`} />
@@ -334,7 +351,7 @@ const EngineSystems = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-surface-container-lowest rounded-xl p-3 shadow-sm w-44"
+            className="bg-white dark:bg-surface-container-lowest rounded-xl p-3 shadow-sm w-full"
           >
             <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
               {t.oilTemp}
@@ -358,7 +375,7 @@ const EngineSystems = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-[#121212] dark:bg-surface-container-lowest rounded-xl p-3 shadow-xl w-44"
+            className="bg-[#121212] dark:bg-surface-container-lowest rounded-xl p-3 shadow-xl w-full"
           >
             <span className="text-[9px] font-bold uppercase tracking-wider text-gray-300">
               {t.diagnosis}
@@ -372,35 +389,33 @@ const EngineSystems = () => {
 
       </main>
 
-      {/* 3.5 Bottom Metrics Bar - Lower z-index than floating card */}
-      <footer className="absolute bottom-0 left-0 right-0 px-6 pb-3 z-20">
-        <div className="grid grid-cols-5 gap-4 max-w-[1400px] mx-auto">
-          {dynamicBottomMetrics.map((metric, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-white dark:bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-slate-100/50 dark:border-dark-surface-variant hover:shadow-md transition-shadow flex flex-col justify-between"
-            >
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                {metric.label}
-              </span>
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-2xl font-semibold text-slate-800">{metric.value}</span>
-                <span className="text-xs text-slate-400 font-normal">{metric.unit}</span>
-              </div>
-              <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                <motion.div
-                  className={`h-full rounded-full ${metric.barColor}`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(metric.barPct * 100, 100)}%` }}
-                  transition={{ duration: 1, delay: idx * 0.1 + 0.3, ease: "easeOut" }}
-                />
-              </div>
-            </motion.div>
-          ))}
-        </div>
+      {/* 3.5 Bottom Metrics Bar */}
+      <footer className="shrink-0 grid grid-cols-5 gap-4 px-4 pb-3 z-20">
+        {dynamicBottomMetrics.map((metric, idx) => (
+          <motion.div
+            key={idx}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.1 }}
+            className="bg-white dark:bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-slate-100/50 dark:border-dark-surface-variant hover:shadow-md transition-shadow flex flex-col justify-between"
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+              {metric.label}
+            </span>
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-2xl font-semibold text-slate-800">{metric.value}</span>
+              <span className="text-xs text-slate-400 font-normal">{metric.unit}</span>
+            </div>
+            <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full ${metric.barColor}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(metric.barPct * 100, 100)}%` }}
+                transition={{ duration: 1, delay: idx * 0.1 + 0.3, ease: "easeOut" }}
+              />
+            </div>
+          </motion.div>
+        ))}
       </footer>
 
     </div>

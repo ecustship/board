@@ -24,7 +24,7 @@ function EngineModelInner({ faultAlarm }) {
     box.getCenter(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const targetSize = 10.2;
+    const targetSize = 17.24;
     const scale = targetSize / maxDim;
 
     // Apply scale then re-measure to compute the scaled center precisely
@@ -114,7 +114,7 @@ function CenterLockedControls({ autoRotate = false, autoRotateSpeed = 0.6 }) {
       enablePan={false}
       minPolarAngle={0}
       maxPolarAngle={Math.PI}
-      minDistance={1.3}
+      minDistance={2.0}
       maxDistance={14}
       autoRotate={autoRotate}
       autoRotateSpeed={autoRotateSpeed}
@@ -219,7 +219,7 @@ export function YachtModel({ rotationY = 0, autoRotate = true, faultAlarm = fals
 export function EngineModel({ autoRotate = true, faultAlarm = false }) {
   return (
     <div className="w-full h-full" style={{ minHeight: '300px' }}>
-      <Canvas camera={{ position: [0, 0.9, 2.4], fov: 38 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
+      <Canvas camera={{ position: [0, 0.9, 3.1], fov: 38 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
         <color attach="background" args={['#f0f0f0']} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow shadow-mapSize={[2048, 2048]} />
@@ -236,11 +236,13 @@ export function EngineModel({ autoRotate = true, faultAlarm = false }) {
 export function EngineSystemsModel() {
   return (
     <div className="w-full h-full" style={{ minHeight: '300px' }}>
-      <Canvas camera={{ position: [0, 0.9, 2.4], fov: 38 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
-        <color attach="background" args={['#f8f9fb']} />
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[5, 5, 5]} intensity={1.0} castShadow shadow-mapSize={[1024, 1024]} />
-        <directionalLight position={[-3, 3, -3]} intensity={0.6} />
+      <Canvas camera={{ position: [0, 0.9, 2.7], fov: 38 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
+        <color attach="background" args={['#f0f0f0']} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow shadow-mapSize={[2048, 2048]} />
+        <directionalLight position={[-3, 3, -3]} intensity={0.8} />
+        <directionalLight position={[0, -2, 2]} intensity={0.4} />
+        <spotLight position={[0, 5, 0]} intensity={0.5} angle={0.5} penumbra={0.5} />
         <EngineModelScene faultAlarm={false} autoRotate autoRotateSpeed={0.8} />
       </Canvas>
     </div>
@@ -252,10 +254,12 @@ export function TrendEngineModel() {
   return (
     <div className="w-full h-full" style={{ minHeight: '200px' }}>
       <Canvas camera={{ position: [0, 0.9, 2.4], fov: 38 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
-        <color attach="background" args={['#f8f9fb']} />
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[4, 6, 4]} intensity={1.0} castShadow shadow-mapSize={[1024, 1024]} />
-        <directionalLight position={[-2, 2, -2]} intensity={0.5} />
+        <color attach="background" args={['#f0f0f0']} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow shadow-mapSize={[2048, 2048]} />
+        <directionalLight position={[-3, 3, -3]} intensity={0.8} />
+        <directionalLight position={[0, -2, 2]} intensity={0.4} />
+        <spotLight position={[0, 5, 0]} intensity={0.5} angle={0.5} penumbra={0.5} />
         <EngineModelScene faultAlarm={false} autoRotate autoRotateSpeed={0.6} />
       </Canvas>
     </div>

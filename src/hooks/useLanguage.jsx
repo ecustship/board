@@ -43,7 +43,7 @@ const translations = {
     cctv2: "CCTV 2",
     cctv3: "CCTV 3",
     systemStatus: "System Status",
-    systemOnline: "System: Online",
+    systemOnline: "Operating Angle",
     cpuLoad: "CPU LOAD",
     voyageStatistics: "Voyage Statistics",
     currentConfiguration: "Current Configuration",
