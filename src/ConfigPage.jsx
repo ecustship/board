@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "./hooks/useLanguage";
 import { useFullscreen } from "./hooks/useFullscreen";
+import { useUnitSystem } from "./hooks/useUnitSystem";
 
 // Default threshold values
 const DEFAULT_THRESHOLDS = {
@@ -15,6 +16,7 @@ const DEFAULT_THRESHOLDS = {
 const ConfigPage = () => {
   const { t, language, setLanguage } = useLanguage();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const { unitSystem, setUnitSystem } = useUnitSystem();
   const [activeSection, setActiveSection] = useState("display");
   const [theme, setTheme] = useState("system");
   const [syncMode, setSyncMode] = useState("local");
@@ -199,8 +201,8 @@ const ConfigPage = () => {
                 <p className="font-bold text-sm text-gray-800 mb-3">{t.language}</p>
                 <div className="flex gap-3">
                   {[
-                    { key: "en", label: t.english, flag: "🇺🇸" },
-                    { key: "zh", label: t.chinese, flag: "🇨🇳" },
+                    { key: "en", label: t.english, flag: "EN" },
+                    { key: "zh", label: t.chinese, flag: "中" },
                   ].map((lang) => (
                     <button
                       key={lang.key}
@@ -216,6 +218,34 @@ const ConfigPage = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <p className="font-bold text-sm text-gray-800 mb-3">
+                  {language === "zh" ? "单位制" : "Unit System"}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "metric", label: language === "zh" ? "公制" : "Metric", detail: "°C / bar / kW / L/h" },
+                    { key: "imperial", label: language === "zh" ? "英制" : "Imperial", detail: "°F / psi / hp / gal/h" },
+                  ].map((mode) => (
+                    <button
+                      key={mode.key}
+                      onClick={() => setUnitSystem(mode.key)}
+                      className={`p-4 rounded-xl border-2 text-left transition-all ${
+                        unitSystem === mode.key
+                          ? "border-[#4cd7d0] bg-[#f0fffe] shadow-md"
+                          : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                      }`}
+                    >
+                      <span className="block text-sm font-bold text-gray-800">{mode.label}</span>
+                      <span className="mt-1 block text-[11px] text-gray-500">{mode.detail}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  {language === "zh" ? "切换后主要页面会统一换算温度、压力、功率、流量和距离单位。" : "Switching applies conversion to temperature, pressure, power, flow, and distance displays across the dashboard."}
+                </p>
               </div>
             </motion.div>
           )}

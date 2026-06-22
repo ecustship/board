@@ -135,45 +135,104 @@ const initialAlarmsData = {
   ],
 };
 
+// 添加平滑滤波处理
+const applySmoothing = (currentValue, newValue, filterCoefficient) => {
+  if (filterCoefficient === 0) return newValue;
+  return currentValue * filterCoefficient + newValue * (1 - filterCoefficient);
+};
+
 // 自定义钩子：实时船舶数据
-export const useVesselData = (updateInterval = 1000) => {
+export const useVesselData = (updateInterval = 1000, config = {}) => {
+  const { smoothingFilter = 0.3, rpmHighAlertLimit = 750, lubeOilPressureLowLimit = 2.5 } = config;
   const [data, setData] = useState(initialVesselData);
+  const prevDataRef = useRef(initialVesselData);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setData((prev) => ({
-        ...prev,
-        position: {
-          lat: fluctuate(prev.position.lat, 30.0, 35.0, 0.0001),
-          lon: fluctuate(prev.position.lon, 120.0, 130.0, 0.0001),
-        },
-        heading: Math.round(fluctuate(prev.heading, 30, 40, 0.01)),
-        pitch: fluctuate(prev.pitch, -1, 1, 0.1),
-        cog: fluctuate(prev.cog, 25, 35, 0.02),
-        sog: fluctuate(prev.sog, 8, 12, 0.03),
-        wind: {
-          direction: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.floor(Math.random() * 8)],
-          speed: Math.round(fluctuate(prev.wind.speed, 10, 25, 0.05)),
-        },
-        draft: {
-          fore: fluctuate(prev.draft.fore, -1.5, 0, 0.02),
-          aft: fluctuate(prev.draft.aft, -0.5, 0.5, 0.02),
-        },
-        fuelConsumption: fluctuate(prev.fuelConsumption, 3000, 4000, 0.01),
-        temperature: fluctuate(prev.temperature, 20, 35, 0.02),
-        humidity: Math.round(fluctuate(prev.humidity, 50, 80, 0.01)),
-      }));
+      setData((prev) => {
+        const newData = {
+          ...prev,
+          position: {
+            lat: fluctuate(prev.position.lat, 30.0, 35.0, 0.0001),
+            lon: fluctuate(prev.position.lon, 120.0, 130.0, 0.0001),
+          },
+          heading: Math.round(fluctuate(prev.heading, 30, 40, 0.01)),
+          pitch: fluctuate(prev.pitch, -1, 1, 0.1),
+          cog: fluctuate(prev.cog, 25, 35, 0.02),
+          sog: fluctuate(prev.sog, 8, 12, 0.03),
+          wind: {
+            direction: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.floor(Math.random() * 8)],
+            speed: Math.round(fluctuate(prev.wind.speed, 10, 25, 0.05)),
+          },
+          draft: {
+            fore: fluctuate(prev.draft.fore, -1.5, 0, 0.02),
+            aft: fluctuate(prev.draft.aft, -0.5, 0.5, 0.02),
+          },
+          fuelConsumption: fluctuate(prev.fuelConsumption, 3000, 4000, 0.01),
+          temperature: fluctuate(prev.temperature, 20, 35, 0.02),
+          humidity: Math.round(fluctuate(prev.humidity, 50, 80, 0.01)),
+        };
+
+        // 应用平滑滤波
+        const smoothedData = {
+          ...newData,
+          sog: applySmoothing(prevDataRef.current.sog, newData.sog, smoothingFilter),
+          heading: applySmoothing(prevDataRef.current.heading, newData.heading, smoothingFilter),
+          fuelConsumption: applySmoothing(prevDataRef.current.fuelConsumption, newData.fuelConsumption, smoothingFilter),
+        };
+
+        prevDataRef.current = smoothedData;
+        return smoothedData;
+      });
     }, updateInterval);
 
     return () => clearInterval(interval);
-  }, [updateInterval]);
+  }, [updateInterval, smoothingFilter]);
 
   return data;
 };
 
 // 自定义钩子：实时引擎数据
-export const useEngineData = (updateInterval = 2000) => {
+export const useEngineData = (updateInterval = 2000, config = {}) => {
+  const { rpmHighAlertLimit = 750, lubeOilPressureLowLimit = 2.5, faultInjectionEnabled = false } = config;
   const [engines, setEngines] = useState(initialEngineData);
+  const faultIntervalRef = useRef(null);
+
+  // 故障注入效果
+  useEffect(() => {
+    if (faultInjectionEnabled) {
+      // 强制生成紧急故障
+      faultIntervalRef.current = setInterval(() => {
+        setEngines((prev) => {
+          const updated = { ...prev };
+          // 强制使柴油机1进入故障状态
+          if (updated.diesel1) {
+            updated.diesel1 = {
+              ...updated.diesel1,
+              rpm: Math.floor(Math.random() * 200) + 800, // 异常转速
+              oilPressure: Math.random() * 1.5 + 1.0, // 低油压
+              status: "fault",
+              alerts: [
+                {
+                  id: Date.now(),
+                  type: "critical",
+                  message: "EMERGENCY: Lube oil pressure critically low",
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+            };
+          }
+          return updated;
+        });
+      }, 3000);
+    }
+
+    return () => {
+      if (faultIntervalRef.current) {
+        clearInterval(faultIntervalRef.current);
+      }
+    };
+  }, [faultInjectionEnabled]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -183,6 +242,23 @@ export const useEngineData = (updateInterval = 2000) => {
         // 更新每个气缸的温度
         Object.keys(updated).forEach((engineKey) => {
           const engine = updated[engineKey];
+          const newOilPressure = engine.status === "running" 
+            ? fluctuate(engine.oilPressure, 3.5, 5.0, 0.02) 
+            : engine.oilPressure;
+
+          // 检查报警阈值
+          const alerts = [...(engine.alerts || [])];
+          if (engineKey === "diesel1" && newOilPressure < lubeOilPressureLowLimit) {
+            if (!alerts.find(a => a.message.includes("Lube oil pressure"))) {
+              alerts.push({
+                id: Date.now(),
+                type: "warning",
+                message: `Lube oil pressure below threshold: ${newOilPressure.toFixed(1)} Bar`,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+
           updated[engineKey] = {
             ...engine,
             rpm: engine.status === "running" ? Math.round(fluctuate(engine.rpm, engine.rpm * 0.9, engine.rpm * 1.1, 0.01)) : engine.rpm,
@@ -192,9 +268,10 @@ export const useEngineData = (updateInterval = 2000) => {
             torque: engine.status === "running" ? fluctuate(engine.torque, engine.torque * 0.8, engine.torque * 1.1, 0.02) : engine.torque,
             exhaustTemp: engine.status === "running" ? fluctuate(engine.exhaustTemp, 350, 500, 0.01) : engine.exhaustTemp,
             coolantTemp: engine.status === "running" ? fluctuate(engine.coolantTemp, 70, 95, 0.01) : engine.coolantTemp,
-            oilPressure: engine.status === "running" ? fluctuate(engine.oilPressure, 3.5, 5.0, 0.02) : engine.oilPressure,
+            oilPressure: newOilPressure,
             turboSpeed: engine.status === "running" ? fluctuate(engine.turboSpeed, 15, 22, 0.02) : engine.turboSpeed,
             cylinders: engine.cylinders.map((temp) => Math.round(fluctuate(temp, 350, 500, 0.015))),
+            alerts: alerts.slice(-3), // 保留最近3条报警
           };
         });
 
@@ -203,7 +280,7 @@ export const useEngineData = (updateInterval = 2000) => {
     }, updateInterval);
 
     return () => clearInterval(interval);
-  }, [updateInterval]);
+  }, [updateInterval, lubeOilPressureLowLimit, rpmHighAlertLimit]);
 
   return engines;
 };

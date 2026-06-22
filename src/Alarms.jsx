@@ -1,446 +1,135 @@
-import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useAlarmsData, useEngineData } from "./hooks/useRealTimeData";
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
+import { AlertTriangle, Bell, BellOff, CheckCircle2 } from "lucide-react";
+import { useAlarmsData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
-import { AlarmRow, AlarmBadge, AlarmPill } from "./components/AlarmBadge";
-import { useAlarmState, ALARM_STATUS, ALARM_COLORS } from "./hooks/useAlarmState";
+import { useFocusMode } from "./hooks/useFocusMode";
 
-const AlarmListView = ({ alarms, onAcknowledge, onResolve }) => {
-  if (!alarms || alarms.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-on-surface-variant">
-        <span className="material-symbols-outlined text-5xl mb-3 text-green-400" style={{ fontVariationSettings: "'FILL' 1" }}>
-          check_circle
-        </span>
-        <p className="text-sm font-medium">No Active Alarms</p>
-        <p className="text-xs text-gray-500 mt-1">All systems operating normally</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 max-h-full overflow-y-auto pr-2">
-      {alarms.map((alarm, idx) => (
-        <motion.div
-          key={alarm.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: idx * 0.05 }}
-        >
-          <AlarmRow
-            alarm={alarm}
-            onAcknowledge={onAcknowledge}
-            onResolve={onResolve}
-          />
-        </motion.div>
-      ))}
-    </div>
-  );
-};
-
-const AlarmHistoryView = ({ history, onResolve }) => {
-  if (!history || history.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-on-surface-variant">
-        <span className="material-symbols-outlined text-4xl mb-3">history</span>
-        <p className="text-sm dark:text-on-surface">No alarm history</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 max-h-full overflow-y-auto pr-2">
-      {history.map((alarm, idx) => (
-        <motion.div
-          key={alarm.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: idx * 0.05 }}
-          className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-surface-container-low/60 border border-gray-200 dark:border-dark-surface-variant opacity-75"
-        >
-          <div className="w-3 h-3 rounded-full bg-green-500 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-600 truncate">{alarm.message}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              {alarm.source} · {alarm.time}
-              {alarm.resolvedTime && ` → Resolved: ${alarm.resolvedTime}`}
-            </p>
-          </div>
-          <span className="text-[9px] font-bold text-green-500 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
-            RESOLVED
-          </span>
-        </motion.div>
-      ))}
-    </div>
-  );
-};
+const priorityRank = { critical: 4, high: 3, medium: 2, low: 1 };
 
 const Alarms = () => {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState("active");
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const { focusMode, toggleFocusMode } = useFocusMode();
   const { alarms, acknowledgeAlarm } = useAlarmsData(5000, language);
-  const engines = useEngineData(2000);
 
-  const unacknowledgedCount = alarms.active.filter((a) => !a.acknowledged).length;
-  const criticalCount = alarms.active.filter(
-    (a) => !a.acknowledged && (a.priority === "critical" || a.priority === "high")
-  ).length;
+  const sortedAlarms = useMemo(
+    () =>
+      alarms.active
+        .slice()
+        .sort((a, b) => (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0)),
+    [alarms.active]
+  );
 
-  // Filter active alarms
-  const filteredActiveAlarms = useMemo(() => {
-    let filtered = alarms.active;
-    if (filterPriority !== "all") {
-      filtered = filtered.filter((a) => a.priority === filterPriority);
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (a) =>
-          a.message.toLowerCase().includes(q) ||
-          a.source.toLowerCase().includes(q)
-      );
-    }
-    return filtered;
-  }, [alarms.active, filterPriority, searchQuery]);
-
-  // Filter history
-  const filteredHistory = useMemo(() => {
-    let filtered = alarms.history;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (a) =>
-          a.message.toLowerCase().includes(q) ||
-          a.source.toLowerCase().includes(q)
-      );
-    }
-    return filtered;
-  }, [alarms.history, searchQuery]);
-
-  const tabs = [
-    { id: "active", label: t.activeAlarmsList, count: alarms.active.length },
-    { id: "history", label: t.alarmHistory, count: alarms.history.length },
-  ];
-
-  const priorities = [
-    { key: "all", label: t.filterAll },
-    { key: "critical", label: t.criticalPriority },
-    { key: "high", label: t.highPriority },
-    { key: "medium", label: t.mediumPriority },
-    { key: "low", label: t.lowPriority },
-  ];
+  const criticalCount = sortedAlarms.filter((alarm) => alarm.priority === "critical" || alarm.priority === "high").length;
+  const pendingCount = sortedAlarms.filter((alarm) => !alarm.acknowledged).length;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pb-4 pt-2 bg-[#F5F6F8] dark:bg-background">
-      {/* Header: Tabs + Stats */}
-      <div className="flex items-center justify-between mb-3 shrink-0">
-          <div className="flex gap-1 bg-gray-100 dark:bg-surface-container rounded-full p-1">
-          {tabs.map((tab) => (
+      <div className="grid min-h-0 flex-1 grid-cols-[1fr_320px] gap-4">
+        <section className="flex min-h-0 flex-col rounded-2xl bg-white p-5 shadow-sm dark:bg-surface-container-lowest">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-[#1A1B1F] dark:text-on-surface">
+                {language === "zh" ? "简易报警中心" : "Simple Alarm Center"}
+              </h1>
+              <p className="text-xs text-slate-500">
+                {language === "zh" ? "所有页面共用同一套简易报警与声音策略。" : "Shared alarm summary and sound policy for every page."}
+              </p>
+            </div>
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                activeTab === tab.id
-                  ? "bg-white dark:bg-surface-container-low text-[#1A1B1F] dark:text-on-surface shadow-sm"
-                  : "text-gray-500 dark:text-on-surface hover:text-gray-700 dark:hover:text-dark-on-surface"
+              onClick={toggleFocusMode}
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider ${
+                focusMode
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+                  : "bg-[#1A1B1F] text-white"
               }`}
             >
-              {tab.label}
-              <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] ${
-                activeTab === tab.id ? "bg-[#1A1B1F] dark:bg-surface-container-lowest text-white dark:text-on-surface" : "bg-gray-300 dark:bg-surface-container-high text-gray-600 dark:text-on-surface-variant"
-              }`}>
-                {tab.count}
-              </span>
+              {focusMode ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              {focusMode ? (language === "zh" ? "专注静音" : "Focus Muted") : (language === "zh" ? "报警有声" : "Sound On")}
             </button>
-          ))}
-        </div>
-
-        {/* Summary stats */}
-        <div className="flex gap-3">
-          {unacknowledgedCount > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded-full">
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-xs font-bold text-red-600">
-                {unacknowledgedCount} Unacknowledged
-              </span>
-            </div>
-          )}
-          {criticalCount > 0 && (
-            <div className="flex items-center gap-2 bg-red-100 border border-red-300 px-3 py-1 rounded-full animate-pulse">
-              <span className="material-symbols-outlined text-red-500 text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                emergency
-              </span>
-              <span className="text-xs font-bold text-red-700">
-                {criticalCount} Critical
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Search & Filters — only on active tab */}
-      {activeTab === "active" && (
-        <div className="flex items-center gap-3 mb-3 shrink-0">
-          <div className="flex-1 relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-              search
-            </span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t.searchFilters}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-white dark:bg-surface-container-low border border-gray-200 dark:border-dark-surface-variant text-xs focus:outline-none focus:border-[#4cd7d0] transition-colors"
-            />
           </div>
-          <div className="flex gap-1">
-            {priorities.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setFilterPriority(p.key)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  filterPriority === p.key
-                    ? "bg-[#1A1B1F] dark:bg-surface-container-low text-white dark:text-on-surface"
-                    : "bg-white dark:bg-surface-container-low text-gray-500 dark:text-on-surface border border-gray-200 dark:border-dark-surface-variant hover:border-gray-300 dark:hover:border-dark-surface-variant"
-                }`}
-              >
-                {p.label}
-              </button>
+
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: t.activeAlarms, value: sortedAlarms.length, color: "text-red-600", bg: "bg-red-50" },
+              { label: language === "zh" ? "高优先级" : "High Priority", value: criticalCount, color: "text-orange-600", bg: "bg-orange-50" },
+              { label: language === "zh" ? "待确认" : "Unacknowledged", value: pendingCount, color: "text-blue-600", bg: "bg-blue-50" },
+            ].map((item) => (
+              <div key={item.label} className={`rounded-xl p-4 ${item.bg}`}>
+                <div className={`text-3xl font-black ${item.color}`}>{item.value}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{item.label}</div>
+              </div>
             ))}
           </div>
-          {unacknowledgedCount > 1 && (
-            <button
-              onClick={() => alarms.active.forEach((a) => !a.acknowledged && acknowledgeAlarm(a.id))}
-              className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors"
-            >
-              {t.acknowledgeAll}
-            </button>
-          )}
-        </div>
-      )}
 
-      {/* Main Content Area */}
-      <div className="flex flex-row flex-1 min-h-0 gap-3">
-        {/* Left: Alarm List */}
-        <section className="flex-1 bg-white/80 dark:bg-surface-container-low/50 backdrop-blur-sm rounded-2xl p-4 min-h-0 overflow-hidden flex flex-col">
-          <AnimatePresence mode="wait">
-            {activeTab === "active" ? (
-              <motion.div
-                key="active"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 overflow-hidden"
-              >
-                <AlarmListView
-                  alarms={filteredActiveAlarms}
-                  onAcknowledge={acknowledgeAlarm}
-                  onResolve={(id) => {/* resolve logic */}}
-                />
-              </motion.div>
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-white/10 dark:bg-surface-container-low">
+            {sortedAlarms.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-green-600">
+                <CheckCircle2 className="mb-2 h-10 w-10" />
+                <div className="text-sm font-bold">{t.allSystemsNormal}</div>
+              </div>
             ) : (
-              <motion.div
-                key="history"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 overflow-hidden"
-              >
-                <AlarmHistoryView history={filteredHistory} />
-              </motion.div>
+              <div className="space-y-2">
+                {sortedAlarms.map((alarm, idx) => {
+                  const urgent = alarm.priority === "critical" || alarm.priority === "high";
+                  return (
+                    <motion.button
+                      key={alarm.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                      onClick={() => acknowledgeAlarm(alarm.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                        urgent
+                          ? "border-red-200 bg-red-50 hover:bg-red-100"
+                          : "border-yellow-200 bg-yellow-50 hover:bg-yellow-100"
+                      } ${alarm.acknowledged ? "opacity-60" : ""}`}
+                    >
+                      <AlertTriangle className={`h-5 w-5 shrink-0 ${urgent ? "text-red-600" : "text-yellow-600"}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-bold text-slate-800">{alarm.message}</div>
+                        <div className="text-[11px] text-slate-500">{alarm.source} / {alarm.time}</div>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${
+                        urgent ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {alarm.acknowledged ? "ACK" : alarm.priority}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
             )}
-          </AnimatePresence>
+          </div>
         </section>
 
-        {/* Right: Status Panel */}
-        <aside className="w-52 xl:w-56 shrink-0 flex flex-col gap-3">
-          {/* Diagnosis Summary */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className={`rounded-xl p-3 shadow-xl border-2 ${
-              criticalCount > 0
-                ? "bg-red-50 border-red-500"
-                : unacknowledgedCount > 0
-                ? "bg-yellow-50 border-yellow-400"
-                : "bg-green-50 border-green-500"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`material-symbols-outlined text-xl ${
-                criticalCount > 0 ? "text-red-500" : unacknowledgedCount > 0 ? "text-yellow-500" : "text-green-500"
-              }`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                {criticalCount > 0 ? "emergency" : unacknowledgedCount > 0 ? "warning" : "check_circle"}
+        <aside className="flex min-h-0 flex-col gap-3">
+          <div className="rounded-2xl bg-[#1A1B1F] p-4 text-white shadow-xl dark:bg-surface-container-lowest">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#4cd7d0]">
+                {language === "zh" ? "声音策略" : "Sound Policy"}
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider">
-                {t.diagnosis}
-              </span>
+              {focusMode ? <BellOff className="h-4 w-4 text-blue-300" /> : <Bell className="h-4 w-4 text-[#79ff5b]" />}
             </div>
-            <p className={`font-bold text-sm ${
-              criticalCount > 0 ? "text-red-600" : unacknowledgedCount > 0 ? "text-yellow-600" : "text-green-600"
-            }`}>
-              {criticalCount > 0
-                ? `${criticalCount} Critical Alarm(s)`
-                : unacknowledgedCount > 0
-                ? `${unacknowledgedCount} Alarm(s) Pending`
-                : t.allSystemsNormal}
+            <p className="text-sm font-bold">
+              {focusMode
+                ? (language === "zh" ? "专注模式开启，报警声音静音。" : "Focus mode is on. Alarm sound is muted.")
+                : (language === "zh" ? "新报警触发时播放短提示音。" : "A short tone plays when new alarms arrive.")}
             </p>
-            <p className="text-[10px] text-gray-500 mt-1">
-              {criticalCount > 0 || unacknowledgedCount > 0
-                ? `${unacknowledgedCount} ${t.requiresAttention}`
-                : t.operatingNormally}
-            </p>
-          </motion.div>
-
-          {/* Engine Status Card */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-[#2e3132] rounded-xl p-3 shadow-xl"
-          >
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">
-                {t.operationStatus}
-              </span>
-              <span className="material-symbols-outlined text-[#79ff5b] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
-                radar
-              </span>
+          </div>
+          <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-surface-container-lowest">
+            <div className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {language === "zh" ? "优先级规则" : "Priority Rule"}
             </div>
-            <div className="space-y-2">
-              {["diesel1", "diesel2", "aux1", "aux2"].map((key) => {
-                const eng = engines[key];
-                const alarmForEng = alarms.active.find(
-                  (a) =>
-                    !a.acknowledged &&
-                    (a.source?.toLowerCase().includes(key) ||
-                      a.source?.toLowerCase().includes("engine"))
-                );
-                return (
-                  <div key={key} className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">
-                      {t[`engine${key === "diesel1" ? 1 : key === "diesel2" ? 2 : key === "aux1" ? "1" : "2"}`]}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <AlarmBadge alarm={alarmForEng || {}} size="sm" />
-                      <span className="text-[9px] font-medium text-gray-300">
-                        {(eng?.power || 0).toLocaleString()} {t.kw}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="space-y-2 text-xs text-slate-600 dark:text-on-surface-variant">
+              <div>1. Critical / High</div>
+              <div>2. Medium</div>
+              <div>3. Low</div>
+              <div>4. Acknowledged</div>
             </div>
-          </motion.div>
-
-          {/* Quick Stats */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-surface-container-lowest rounded-xl p-3 shadow-sm border border-gray-100 dark:border-dark-surface-variant"
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-red-50 rounded-lg p-2 text-center">
-                <p className="text-lg font-bold text-red-600">{criticalCount}</p>
-                <p className="text-[8px] uppercase text-red-400 tracking-wider">Critical</p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-2 text-center">
-                <p className="text-lg font-bold text-yellow-600">
-                  {alarms.active.filter((a) => a.priority === "medium" || a.priority === "low").length}
-                </p>
-                <p className="text-[8px] uppercase text-yellow-400 tracking-wider">Warning</p>
-              </div>
-              <div className="bg-blue-50 rounded-lg p-2 text-center">
-                <p className="text-lg font-bold text-blue-600">
-                  {alarms.active.filter((a) => a.acknowledged).length}
-                </p>
-                <p className="text-[8px] uppercase text-blue-400 tracking-wider">Ack'd</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-2 text-center">
-                <p className="text-lg font-bold text-green-600">{alarms.history.length}</p>
-                <p className="text-[8px] uppercase text-green-400 tracking-wider">Resolved</p>
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </aside>
       </div>
-
-      {/* Bottom: Status Cards */}
-      <footer className="grid grid-cols-5 gap-3 mt-3 w-full">
-        {[
-          {
-            label: t.overspeed,
-            value: alarms.active.some((a) => a.priority === "critical") ? "TRIGGERED" : t.normal,
-            unit: `${engines.diesel1?.rpm || 0} ${t.rpm}`,
-            alert: alarms.active.some((a) => a.priority === "critical"),
-            color: "red",
-          },
-          {
-            label: t.eStopStatus,
-            value: criticalCount > 0 ? t.armed : t.ready,
-            unit: t.ready,
-            alert: criticalCount > 0,
-            color: criticalCount > 0 ? "red" : "green",
-          },
-          {
-            label: t.waterLevel,
-            value: alarms.active.some((a) => a.source?.toLowerCase().includes("bilge") || a.source?.toLowerCase().includes("water"))
-              ? t.low
-              : t.normal,
-            unit: `${Math.round(engines.diesel1?.coolantTemp || 0)}%`,
-            alert: alarms.active.some((a) => a.source?.toLowerCase().includes("bilge")),
-            color: alarms.active.some((a) => a.source?.toLowerCase().includes("bilge")) ? "red" : "green",
-          },
-          {
-            label: t.leakageStatus,
-            value: alarms.active.length > 0 ? t.detected : t.clear,
-            unit: alarms.active.length > 0 ? `${t.zone} ${alarms.active.length}` : t.ok,
-            alert: alarms.active.length > 0,
-            color: alarms.active.length > 0 ? "red" : "green",
-          },
-          {
-            label: t.controlPower,
-            value: t.online,
-            unit: "24V DC",
-            alert: false,
-            color: "green",
-          },
-        ].map((metric, idx) => (
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className={`rounded-xl p-3 shadow-sm border flex flex-col justify-between ${
-              metric.alert
-                ? "bg-red-50 dark:bg-red-900/10 border-2 border-red-200 dark:border-red-900/30"
-                : "bg-white dark:bg-surface-container-lowest border border-gray-100 dark:border-dark-surface-variant"
-            }`}
-          >
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${
-              metric.alert ? "text-red-500 dark:text-red-400" : "text-gray-400 dark:text-on-surface-variant"
-            }`}>
-              {metric.label}
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className={`text-xl font-bold ${
-                metric.alert ? "text-red-600 dark:text-red-400" : "text-[#1A1B1F] dark:text-on-surface"
-              }`}>
-                {metric.value}
-              </span>
-              <span className={`text-[10px] ${
-                metric.alert ? "text-red-400" : "text-gray-400"
-              }`}>
-                {metric.unit}
-              </span>
-            </div>
-          </motion.div>
-        ))}
-      </footer>
     </div>
   );
 };

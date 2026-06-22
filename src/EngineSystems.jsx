@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEngineData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
-import { EngineSystemsModel } from "./YachtModel";
+import EngineSectionDiagram from "./components/EngineSectionDiagram";
+import { useUnitSystem } from "./hooks/useUnitSystem";
 
 const TrendIcon = () => (
   <svg width="28" height="14" viewBox="0 0 28 14" className="ml-2">
@@ -103,6 +104,7 @@ const DiagnoseIndicator = ({ active }) => (
 
 const EngineSystems = () => {
   const { t } = useLanguage();
+  const { formatUnit } = useUnitSystem();
   const [activeEngine, setActiveEngine] = useState("diesel1");
   const [activeSystem, setActiveSystem] = useState(null);
   const [showParamCard, setShowParamCard] = useState(true);
@@ -160,20 +162,14 @@ const EngineSystems = () => {
   const currentMeta = systemMenu.find((s) => s.id === activeSystem);
 
   // Dynamic bottom metrics based on engine data
+  const activeEngineData = engineData[activeEngine] || {};
+  const apparentPower = (activeEngineData.voltage || 400) * (activeEngineData.current || 450) * Math.sqrt(3) / 1000;
+  const electricPower = activeEngineData.power || Math.round(apparentPower * (activeEngineData.powerFactor || 0.84));
   const dynamicBottomMetrics = [
-    { label: t.coolantPress, value: engineData[activeEngine]?.coolantTemp?.toFixed(1) || "0", unit: "°C", barColor: "bg-blue-500", barPct: ((engineData[activeEngine]?.coolantTemp || 0) / 100) },
-    { label: t.seaWaterPress, value: engineData[activeEngine]?.oilPressure?.toFixed(1) || "0", unit: "bar", barColor: "bg-blue-500", barPct: ((engineData[activeEngine]?.oilPressure || 0) / 5) },
-    { label: t.manifoldPressLB, value: engineData[activeEngine]?.turboSpeed?.toFixed(1) || "0", unit: "krpm", barColor: "bg-green-500", barPct: ((engineData[activeEngine]?.turboSpeed || 0) / 25) },
-    { label: t.exhaustTemp, value: engineData[activeEngine]?.exhaustTemp?.toFixed(0) || "0", unit: "°C", barColor: "bg-gray-400", barPct: ((engineData[activeEngine]?.exhaustTemp || 0) / 500) },
-    { label: t.engineLoad, value: engineData[activeEngine]?.load || "0", unit: "%", barColor: "bg-green-500", barPct: ((engineData[activeEngine]?.load || 0) / 100) },
-  ];
-
-  // Hotspot positions (percentage-based on image)
-  const hotspots = [
-    { id: "lubrication", top: "35%", left: "25%", label: t.lubrication },
-    { id: "cooling", top: "45%", left: "45%", label: t.cooling },
-    { id: "fuel", top: "55%", left: "65%", label: t.fuel },
-    { id: "airIntake", top: "25%", left: "75%", label: t.airIntake },
+    { label: "Voltage", value: activeEngineData.voltage || 400, unit: "V", barColor: "bg-blue-500", barPct: ((activeEngineData.voltage || 0) / 500) },
+    { label: "Current", value: activeEngineData.current || 450, unit: "A", barColor: "bg-cyan-500", barPct: ((activeEngineData.current || 0) / 650) },
+    { label: "Power Factor", value: (activeEngineData.powerFactor || 0.84).toFixed(2), unit: "", barColor: "bg-emerald-500", barPct: activeEngineData.powerFactor || 0.84 },
+    { label: "Electric Power", value: formatUnit("power", electricPower, 0).value, unit: formatUnit("power", electricPower, 0).unit, barColor: "bg-indigo-500", barPct: (electricPower / 15000) },
   ];
 
   // Replace the ring's percent readout with the propulsion-power number (like Main Engine)
@@ -239,29 +235,12 @@ const EngineSystems = () => {
           style={{ minHeight: 0 }}
         >
           <div className="w-full flex-1" style={{ minHeight: '300px' }}>
-            <EngineSystemsModel />
+            <EngineSectionDiagram
+              engine={activeEngineData}
+              activeSystem={activeSystem}
+              onSystemClick={handleSystemClick}
+            />
           </div>
-
-          {/* Interactive Hotspots */}
-          {hotspots.map((hotspot) => (
-            <button
-              key={hotspot.id}
-              onClick={() => handleSystemClick(hotspot.id)}
-              className={`absolute w-14 h-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all duration-300 cursor-pointer ${
-                activeSystem === hotspot.id
-                  ? "border-blue-500 bg-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.6)]"
-                  : "border-transparent hover:border-blue-400/60 hover:bg-blue-400/10"
-              } ${activeSystem === null || activeSystem !== hotspot.id ? "animate-pulse" : ""}`}
-              style={{ top: hotspot.top, left: hotspot.left }}
-              title={hotspot.label}
-            >
-              <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold uppercase tracking-wider ${
-                activeSystem === hotspot.id ? "text-white" : "text-white/70"
-              }`}>
-                {hotspot.label.split(" ")[0]}
-              </span>
-            </button>
-          ))}
 
           {/* Glassmorphism Floating Modal */}
           <AnimatePresence mode="wait">
@@ -390,7 +369,7 @@ const EngineSystems = () => {
       </main>
 
       {/* 3.5 Bottom Metrics Bar */}
-      <footer className="shrink-0 grid grid-cols-5 gap-4 px-4 pb-3 z-20">
+      <footer className="shrink-0 grid grid-cols-4 gap-4 px-4 pb-3 z-20">
         {dynamicBottomMetrics.map((metric, idx) => (
           <motion.div
             key={idx}

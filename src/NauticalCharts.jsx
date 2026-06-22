@@ -91,7 +91,7 @@ const createVesselIcon = (color, isSelected) => {
 
 const bottomCards = [
   { id: 0, type: "voyage" },
-  { id: 1, type: "fuel" },
+  { id: 1, type: "power" },
 ];
 
 const NauticalCharts = () => {
@@ -278,14 +278,24 @@ const NauticalCharts = () => {
       >
         <div className="p-4 border-b border-white/10 bg-[#191c1e]/30">
           <h3 className="text-white font-bold text-[10px] uppercase tracking-widest mb-3">{t.realTimeDataLabel}</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <p className="text-[#717786] text-[10px] uppercase font-bold">{t.windSpeed}</p>
-              <p className="text-[#2ae500] text-xl font-bold">14.2 <span className="text-[12px]">{t.knots}</span></p>
+          <div className="space-y-3">
+            <div className="rounded-xl bg-white/5 p-3">
+              <p className="text-[#2ae500] font-mono text-[15px]">
+                {selectedVessel ? formatCoord(selectedVessel.lat, true) : "31.2300° N"}
+              </p>
+              <p className="text-[#2ae500] font-mono text-[15px]">
+                {selectedVessel ? formatCoord(selectedVessel.lon, false) : "122.1000° E"}
+              </p>
             </div>
-            <div className="space-y-1">
-              <p className="text-[#717786] text-[10px] uppercase font-bold">{t.vesselHeading}</p>
-              <p className="text-[#2ae500] text-xl font-bold">112° <span className="text-[12px]">NW</span></p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-[#717786] text-[10px] uppercase font-bold">{t.windSpeed}</p>
+                <p className="text-[#2ae500] text-xl font-bold">14.2 <span className="text-[12px]">{t.knots}</span></p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[#717786] text-[10px] uppercase font-bold">{t.vesselHeading}</p>
+                <p className="text-[#2ae500] text-xl font-bold">112° <span className="text-[12px]">NW</span></p>
+              </div>
             </div>
           </div>
         </div>
@@ -294,28 +304,6 @@ const NauticalCharts = () => {
           <section>
             <h4 className="text-white/40 font-bold text-[10px] uppercase tracking-widest mb-4">{t.vitals}</h4>
             <div className="space-y-4">
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="flex justify-between items-center group"
-              >
-                <span className="text-[#717786] text-[13px] group-hover:text-white transition-colors">{t.latitude}</span>
-                <span className="text-[#2ae500] font-mono text-[13px]">
-                  {selectedVessel ? formatCoord(selectedVessel.lat, true) : "31.23° N"}
-                </span>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
-                className="flex justify-between items-center group"
-              >
-                <span className="text-[#717786] text-[13px] group-hover:text-white transition-colors">{t.longitude}</span>
-                <span className="text-[#2ae500] font-mono text-[13px]">
-                  {selectedVessel ? formatCoord(selectedVessel.lon, false) : "122.10° E"}
-                </span>
-              </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -531,14 +519,14 @@ const NauticalCharts = () => {
             ) : (
               <>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-white font-bold text-[10px] uppercase tracking-wider">{t.fuelConsumption}</h3>
-                  <span className="text-[#2ae500] text-[10px] font-bold">-2.4% {t.optimalLabel}</span>
+                  <h3 className="text-white font-bold text-[10px] uppercase tracking-wider">POWER</h3>
+                  <span className="text-[#2ae500] text-[10px] font-bold">+3.8% {t.optimalLabel}</span>
                 </div>
 
                 <div className="relative h-16 mb-3 overflow-hidden rounded-xl bg-white/5">
                   <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 100">
                     <motion.path
-                      d="M0,80 Q50,60 100,70 T200,40 T300,50 T400,20"
+                      d="M0,70 Q45,46 95,58 T190,30 T300,44 T400,24"
                       fill="none"
                       stroke="#79ff5b"
                       strokeWidth="2"
@@ -546,7 +534,7 @@ const NauticalCharts = () => {
                       animate={{ pathLength: 1 }}
                       transition={{ duration: 1.5, delay: 0.8 }}
                     />
-                    <path d="M0,80 Q50,60 100,70 T200,40 T300,50 T400,20 L400,100 L0,100 Z" fill="url(#gradient-green)" opacity="0.1" />
+                    <path d="M0,70 Q45,46 95,58 T190,30 T300,44 T400,24 L400,100 L0,100 Z" fill="url(#gradient-green)" opacity="0.1" />
                     <defs>
                       <linearGradient id="gradient-green" x1="0%" x2="0%" y1="0%" y2="100%">
                         <stop offset="0%" style={{ stopColor: '#79ff5b', stopOpacity: 1 }} />
@@ -558,8 +546,8 @@ const NauticalCharts = () => {
 
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-white/40 text-[10px] font-bold uppercase">{t.avgRate}</p>
-                    <p className="text-white text-[16px] font-bold">1,240 <span className="text-[10px]">{t.lh}</span></p>
+                    <p className="text-white/40 text-[10px] font-bold uppercase">AVG POWER</p>
+                    <p className="text-white text-[16px] font-bold">12,450 <span className="text-[10px]">kW</span></p>
                   </div>
                   <div className="text-right">
                     <p className="text-white/40 text-[10px] font-bold uppercase">{t.efficiency}</p>
