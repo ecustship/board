@@ -1,56 +1,9 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEngineData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
 import EngineSectionDiagram from "./components/EngineSectionDiagram";
 import { useUnitSystem } from "./hooks/useUnitSystem";
-
-const TrendIcon = () => (
-  <svg width="28" height="14" viewBox="0 0 28 14" className="ml-2">
-    <polyline
-      points="0,12 8,6 14,9 20,3 28,7"
-      fill="none"
-      stroke="#ef4444"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <polygon points="25,7 28,7 28,10" fill="#ef4444" />
-  </svg>
-);
-
-const RingProgress = ({ value, max = 1, displayValue, displayUnit }) => {
-  const r = 18;
-  const circ = 2 * Math.PI * r;
-  const filled = circ * Math.min(value / max, 1) * 0.75;
-  const startOffset = circ * 0.25;
-
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0">
-      <circle cx="24" cy="24" r={r} fill="none" stroke="#e5e7eb" strokeWidth="4" />
-      <circle
-        cx="24"
-        cy="24"
-        r={r}
-        fill="none"
-        stroke="#3b82f6"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray={`${filled} ${circ}`}
-        strokeDashoffset={-startOffset}
-        transform="rotate(-135 24 24)"
-      />
-      <text x="24" y="26" textAnchor="middle" fontSize="8" fill="#374151" fontWeight="bold">
-        {displayValue ?? `${(value * 100).toFixed(0)}%`}
-      </text>
-      {displayUnit && (
-        <text x="24" y="35" textAnchor="middle" fontSize="6" fill="#6b7280" fontWeight="bold">
-          {displayUnit}
-        </text>
-      )}
-    </svg>
-  );
-};
 
 const HalfGauge = ({ value, max = 5000, label }) => {
   const r = 30;
@@ -106,29 +59,7 @@ const EngineSystems = () => {
   const { t } = useLanguage();
   const { formatUnit } = useUnitSystem();
   const [activeEngine, setActiveEngine] = useState("diesel1");
-  const [activeSystem, setActiveSystem] = useState(null);
-  const [showParamCard, setShowParamCard] = useState(true);
   const engineData = useEngineData(2000);
-
-  const handleSystemClick = (systemId) => {
-    if (activeSystem === systemId) {
-      setShowParamCard(false);
-      setTimeout(() => {
-        setActiveSystem(null);
-        setShowParamCard(true);
-      }, 200);
-    } else {
-      setActiveSystem(systemId);
-      setShowParamCard(true);
-    }
-  };
-
-  const systemMenu = [
-    { id: "lubrication", label: t.lubrication, systemName: t.lubricationSystem },
-    { id: "cooling", label: t.cooling, systemName: t.coolingSystem },
-    { id: "fuel", label: t.fuel, systemName: t.fuelSystem },
-    { id: "airIntake", label: t.airIntake, systemName: t.airIntakeSystem },
-  ];
 
   const engines = [
     { id: "diesel1", label: t.dieselEngine1 },
@@ -137,43 +68,19 @@ const EngineSystems = () => {
     { id: "diesel4", label: t.dieselEngine4 },
   ];
 
-  const systemParameters = {
-    lubrication: [
-      { label: t.lubeOilTemp, value: 85, unit: "°C", trend: "up" },
-      { label: t.filterDiffPress, value: 0.52, unit: "bar", ring: 0.52 },
-      { label: t.crankcasePress, value: 12.1, unit: "mmH2O" },
-    ],
-    cooling: [
-      { label: t.coolantPressure, value: 3.2, unit: "bar" },
-      { label: t.seaWaterPressure, value: 2.8, unit: "bar" },
-    ],
-    fuel: [
-      { label: t.fuelDeliveryPress, value: 4.5, unit: "bar" },
-      { label: t.fuelTemp, value: 38, unit: "°C" },
-    ],
-    airIntake: [
-      { label: t.intakeManifoldPressLB, value: 2.4, unit: "bar" },
-      { label: t.intakeManifoldTempLBF, value: 45, unit: "°C" },
-      { label: t.barometricPress, value: 1.0, unit: "bar" },
-    ],
-  };
-
-  const params = activeSystem ? systemParameters[activeSystem] || [] : [];
-  const currentMeta = systemMenu.find((s) => s.id === activeSystem);
-
   // Dynamic bottom metrics based on engine data
   const activeEngineData = engineData[activeEngine] || {};
-  const apparentPower = (activeEngineData.voltage || 400) * (activeEngineData.current || 450) * Math.sqrt(3) / 1000;
-  const electricPower = activeEngineData.power || Math.round(apparentPower * (activeEngineData.powerFactor || 0.84));
+  const voltage = activeEngineData.voltage || 400;
+  const current = activeEngineData.current || 450;
+  const powerFactor = activeEngineData.powerFactor || 0.84;
+  const apparentPower = voltage * current * Math.sqrt(3) / 1000;
+  const electricPower = activeEngineData.power || Math.round(apparentPower * powerFactor);
   const dynamicBottomMetrics = [
-    { label: "Voltage", value: activeEngineData.voltage || 400, unit: "V", barColor: "bg-blue-500", barPct: ((activeEngineData.voltage || 0) / 500) },
-    { label: "Current", value: activeEngineData.current || 450, unit: "A", barColor: "bg-cyan-500", barPct: ((activeEngineData.current || 0) / 650) },
-    { label: "Power Factor", value: (activeEngineData.powerFactor || 0.84).toFixed(2), unit: "", barColor: "bg-emerald-500", barPct: activeEngineData.powerFactor || 0.84 },
+    { label: "Voltage", value: voltage, unit: "V", barColor: "bg-blue-500", barPct: (voltage / 500) },
+    { label: "Current", value: current, unit: "A", barColor: "bg-cyan-500", barPct: (current / 650) },
+    { label: "Power Factor", value: powerFactor.toFixed(2), unit: "", barColor: "bg-emerald-500", barPct: powerFactor },
     { label: "Electric Power", value: formatUnit("power", electricPower, 0).value, unit: formatUnit("power", electricPower, 0).unit, barColor: "bg-indigo-500", barPct: (electricPower / 15000) },
   ];
-
-  // Replace the ring's percent readout with the propulsion-power number (like Main Engine)
-  const propulsionPower = engineData[activeEngine]?.power || 0;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#F5F6F8] dark:bg-background">
@@ -198,35 +105,6 @@ const EngineSystems = () => {
               </button>
             ))}
           </div>
-
-          {/* System Selection */}
-          <div className="flex flex-col gap-1.5 mt-4">
-            {systemMenu.map((sys) => (
-              <button
-                key={sys.id}
-                onClick={() => handleSystemClick(sys.id)}
-                className={`relative flex items-center gap-3 pl-4 pr-5 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                  activeSystem === sys.id
-                    ? "bg-white dark:bg-surface-container-low shadow-md"
-                    : "hover:bg-white/50 dark:hover:bg-dark-surface-container-low/50"
-                }`}
-              >
-                {activeSystem === sys.id && (
-                  <motion.div
-                    layoutId="activeIndicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-blue-600 rounded-r-full"
-                  />
-                )}
-                <span
-                  className={`text-[11px] font-bold tracking-wider uppercase transition-colors duration-200 ${
-                    activeSystem === sys.id ? "text-blue-600" : "text-gray-500"
-                  }`}
-                >
-                  {sys.label}
-                </span>
-              </button>
-            ))}
-          </div>
         </aside>
 
         {/* 3.3 Center 3D Area */}
@@ -237,68 +115,8 @@ const EngineSystems = () => {
           <div className="w-full flex-1" style={{ minHeight: '300px' }}>
             <EngineSectionDiagram
               engine={activeEngineData}
-              activeSystem={activeSystem}
-              onSystemClick={handleSystemClick}
             />
           </div>
-
-          {/* Glassmorphism Floating Modal */}
-          <AnimatePresence mode="wait">
-            {activeSystem && showParamCard && (
-              <motion.div
-                key={activeSystem}
-                initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: -10 }}
-                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                className="absolute top-1/2 right-4 -translate-y-1/2 backdrop-blur-md bg-white/80 dark:bg-surface-container-low/90 border border-white/60 dark:border-dark-surface-variant shadow-2xl rounded-xl p-4 w-56 z-50"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shadow-[0_0_6px_#3b82f6]" />
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                    {currentMeta?.systemName}
-                  </h3>
-                  <button
-                    onClick={() => handleSystemClick(activeSystem)}
-                    className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                      <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {params.map((param, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-gray-400 uppercase tracking-wider">{param.label}</span>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="text-lg font-bold text-[#0A0A0A]">{param.value}</span>
-                          <span className="text-[10px] text-gray-400 font-medium">{param.unit}</span>
-                          {param.trend === "up" && <TrendIcon />}
-                        </div>
-                      </div>
-                      {param.ring !== undefined && (
-                        <RingProgress
-                          value={param.ring}
-                          max={1}
-                          displayValue={propulsionPower.toLocaleString()}
-                          displayUnit="kW"
-                        />
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </section>
 
         {/* 3.4 Right Status Panels */}

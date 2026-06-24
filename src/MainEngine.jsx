@@ -102,7 +102,7 @@ const MainEngine = () => {
             as a small strip in the middle.
           */}
           <div className="w-full flex-1" style={{ minHeight: '300px' }}>
-            <EngineModel autoRotate={autoRotate} faultAlarm={showFaultHighlight} />
+            <EngineModel autoRotate={autoRotate} faultAlarm={false} />
           </div>
           <div className="absolute left-4 top-4 w-64 rounded-xl border border-white/70 bg-white/85 p-3 shadow-lg backdrop-blur dark:border-white/10 dark:bg-surface-container-lowest/85">
             <div className="mb-2 flex items-center justify-between">
@@ -136,13 +136,13 @@ const MainEngine = () => {
         </section>
 
         {/* Right: Status Panels */}
-        <aside className="w-48 xl:w-52 shrink-0 flex flex-col gap-3 z-20 justify-start overflow-y-auto max-h-full" style={{ minHeight: 0 }}>
+        <aside className="w-72 xl:w-80 shrink-0 flex flex-col gap-4 z-20 justify-start overflow-y-auto max-h-full" style={{ minHeight: 0 }}>
           {/* Vessel Information */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.05 }}
-            className="bg-[#1A1A1A] dark:bg-surface-container-lowest text-white dark:text-on-surface rounded-xl p-3 shadow-xl"
+            className="bg-[#1A1A1A] dark:bg-surface-container-lowest text-white dark:text-on-surface rounded-xl p-4 shadow-xl"
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
@@ -150,12 +150,12 @@ const MainEngine = () => {
               </span>
               <span className="material-symbols-outlined text-[#4cd7d0] text-sm">directions_boat</span>
             </div>
-            <div className="h-20 overflow-hidden rounded-lg bg-white/10">
-              <img src="/image/微信图片_20260519205820_68_1477.png" alt="Vessel" className="h-full w-full object-cover" />
+            <div className="h-28 overflow-hidden rounded-lg bg-white/10">
+              <img src="/image/board.jpg" alt="Vessel" className="h-full w-full object-cover" />
             </div>
             <div className="mt-2">
-              <p className="text-base font-bold">{language === "zh" ? "A 号船" : "VESSEL A"}</p>
-              <p className="text-[10px] text-gray-400">IMO 9876543 / {language === "zh" ? "主推进监控" : "Main propulsion monitor"}</p>
+              <p className="text-xl font-bold">{language === "zh" ? "A 号船" : "VESSEL A"}</p>
+              <p className="text-xs text-gray-400">IMO 9876543 / {language === "zh" ? "主推进监控" : "Main propulsion monitor"}</p>
             </div>
           </motion.div>
 
@@ -164,7 +164,7 @@ const MainEngine = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-surface-container-lowest rounded-xl p-3 shadow-sm border border-slate-100/50 dark:border-dark-surface-variant"
+            className="bg-white dark:bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-slate-100/50 dark:border-dark-surface-variant"
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -172,7 +172,7 @@ const MainEngine = () => {
               </span>
               <span className="material-symbols-outlined text-[#4cd7d0] text-sm">precision_manufacturing</span>
             </div>
-            <div className="space-y-2 text-xs">
+            <div className="space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-gray-400">Model</span><b>Marine Diesel</b></div>
               <div className="flex justify-between"><span className="text-gray-400">Serial No.</span><b>ME-{activeEngine.toUpperCase()}-0428</b></div>
               <div className="flex justify-between"><span className="text-gray-400">Prod. No.</span><b>PRD-2026-071</b></div>
@@ -185,7 +185,7 @@ const MainEngine = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.15 }}
-            className="bg-[#1A1A1A] dark:bg-surface-container-lowest text-white dark:text-on-surface rounded-xl p-3 shadow-xl flex flex-col items-center"
+            className="bg-[#1A1A1A] dark:bg-surface-container-lowest text-white dark:text-on-surface rounded-xl p-4 shadow-xl flex flex-col items-center"
           >
             <div className="mb-2 flex w-full items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
@@ -196,8 +196,8 @@ const MainEngine = () => {
             <div className="w-full space-y-2">
               {alarms.active.length > 0 ? alarms.active.slice(0, 3).map((alarm) => (
                 <div key={alarm.id} className="w-full rounded-lg bg-red-500/10 p-2 text-left">
-                  <p className="truncate text-[11px] font-bold text-red-200">{alarm.message}</p>
-                  <p className="text-[9px] text-red-300/80">{alarm.source} / {alarm.priority}</p>
+                  <p className="truncate text-sm font-bold text-red-200">{alarm.message}</p>
+                  <p className="text-[11px] text-red-300/80">{alarm.source} / {alarm.priority}</p>
                 </div>
               )) : (
                 <div className="w-full rounded-lg bg-green-500/10 p-2 text-center text-[11px] font-bold text-green-300">

@@ -369,7 +369,7 @@ const NauticalCharts = () => {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#2e3132]/90 backdrop-blur-xl border border-white/10 p-6 rounded-3xl shadow-2xl z-30 w-[360px]"
+          className="fixed left-1/2 top-1/2 max-h-[calc(100vh-7rem)] w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto bg-[#2e3132]/95 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl z-40"
         >
           <div className="flex justify-between items-start mb-6">
             <div>
@@ -394,8 +394,8 @@ const NauticalCharts = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 mb-8">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <div className="space-y-3">
               <div className="p-4 bg-white/5 rounded-2xl">
                 <p className="text-white/40 text-[10px] font-bold mb-1 uppercase">{t.latitude}</p>
                 <p className="text-white text-[18px] font-mono">{formatCoord(selectedVessel.lat, true)}</p>
@@ -405,7 +405,7 @@ const NauticalCharts = () => {
                 <p className="text-white text-[18px] font-mono">{formatCoord(selectedVessel.lon, false)}</p>
               </div>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="p-4 bg-white/5 rounded-2xl">
                 <p className="text-white/40 text-[10px] font-bold mb-1 uppercase">{t.localTime}</p>
                 <p className="text-white text-[18px] font-mono">{selectedVessel.time}</p>
@@ -417,11 +417,11 @@ const NauticalCharts = () => {
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <button className="flex-1 py-4 bg-[#0058bc] text-white rounded-2xl font-bold transition-transform active:scale-95">
+          <div className="flex gap-3">
+            <button className="flex-1 py-3 bg-[#0058bc] text-white rounded-xl font-bold transition-transform active:scale-95">
               {t.openChartDetails}
             </button>
-            <button className="w-14 bg-white/10 text-white flex items-center justify-center rounded-2xl hover:bg-white/20 transition-colors">
+            <button className="w-12 bg-white/10 text-white flex items-center justify-center rounded-xl hover:bg-white/20 transition-colors">
               <span className="material-symbols-outlined">share</span>
             </button>
           </div>

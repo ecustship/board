@@ -1,11 +1,55 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, AlertCircle, ShipWheel } from "lucide-react";
+import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, AlertCircle, Thermometer, RotateCw } from "lucide-react";
 import RealtimeDataConfigModal from "./components/RealtimeDataConfigModal";
 import SystemStatusConfigModal from "./components/SystemStatusConfigModal";
 import { useNavigationConfig } from "./hooks/useNavigationConfig";
 import { useVesselData, useEngineData, useSystemStatus } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
+
+const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
+  const pct = Math.max(0, Math.min((Number(value) || 0) / max, 1));
+  const angle = -135 + pct * 270;
+  return (
+    <div className="rounded-xl bg-surface-container p-3 dark:bg-surface-container-low">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant">{label}</span>
+        <span className="text-primary-container">{icon}</span>
+      </div>
+      <div className="relative mx-auto flex aspect-square max-h-28 min-h-24 items-center justify-center">
+        <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(148,163,184,0.28)" strokeWidth="9" />
+          <circle
+            cx="60"
+            cy="60"
+            r="48"
+            fill="none"
+            stroke={color}
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={`${pct * 301.6} 301.6`}
+            transform="rotate(135 60 60)"
+          />
+          <line
+            x1="60"
+            y1="60"
+            x2="60"
+            y2="22"
+            stroke="#1A1B1F"
+            strokeWidth="4"
+            strokeLinecap="round"
+            transform={`rotate(${angle} 60 60)`}
+          />
+          <circle cx="60" cy="60" r="5" fill={color} />
+        </svg>
+        <div className="absolute bottom-4 text-center">
+          <div className="text-xl font-black text-on-background">{value}</div>
+          <div className="text-[9px] font-bold uppercase text-on-surface-variant">{unit}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const NavigationPage = () => {
   const { t, language } = useLanguage();
@@ -86,8 +130,10 @@ const NavigationPage = () => {
     },
   ];
 
+  const mainEngine = engineData.diesel1 || {};
+
   return (
-    <div className="flex-1 min-h-0 w-full px-2 sm:px-3 py-2 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 max-w-[1600px] mx-auto items-stretch">
+    <div className="flex-1 min-h-0 h-full w-full px-2 sm:px-3 py-2 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 items-stretch">
       {/* Column 1: 监控画面 */}
       <motion.section
         initial={{ opacity: 0, x: -20 }}
@@ -173,7 +219,7 @@ const NavigationPage = () => {
         </div>
 
         {/* System Status Card */}
-        <div className="bg-on-secondary-fixed dark:bg-surface-container-low text-white dark:text-surface-container rounded-xl p-2 sm:p-3 shrink-0 text-center relative">
+        <div className="bg-on-secondary-fixed dark:bg-surface-container-low text-white dark:text-surface-container rounded-xl p-4 shrink-0 text-center relative">
           {/* Settings Button */}
           <button
             onClick={() => setSystemModalOpen(true)}
@@ -191,9 +237,9 @@ const NavigationPage = () => {
           <h3 className="font-label text-[10px] uppercase tracking-widest text-primary-container mb-1 text-left">
             {t.systemStatus}
           </h3>
-          <div className="flex justify-center items-start gap-8 sm:gap-10 py-1">
+          <div className="flex justify-center items-start gap-10 sm:gap-12 py-3">
             <div className="flex flex-col items-center">
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 shrink-0">
+              <div className="relative w-20 h-20 shrink-0">
                 <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 80 80">
                   <circle
                     cx="40"
@@ -218,15 +264,15 @@ const NavigationPage = () => {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-sm font-headline font-bold">{systemStatus.systemHealth}%</span>
+                  <span className="text-lg font-headline font-bold">{systemStatus.systemHealth}%</span>
                 </div>
               </div>
-              <span className="text-[8px] uppercase tracking-tighter mt-0.5 text-center max-w-[5.5rem] leading-tight">
+              <span className="text-[10px] uppercase tracking-tighter mt-1 text-center max-w-[6.5rem] leading-tight">
                 {t.operatingAngle}
               </span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 shrink-0">
+              <div className="relative w-20 h-20 shrink-0">
                 <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 80 80">
                   <circle
                     cx="40"
@@ -251,10 +297,10 @@ const NavigationPage = () => {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-sm font-headline font-bold">{systemStatus.cpuLoad}%</span>
+                  <span className="text-lg font-headline font-bold">{systemStatus.cpuLoad}%</span>
                 </div>
               </div>
-              <span className="text-[8px] uppercase tracking-tighter mt-0.5 text-center max-w-[5.5rem] leading-tight">
+              <span className="text-[10px] uppercase tracking-tighter mt-1 text-center max-w-[6.5rem] leading-tight">
                 {t.propulsionPower}
               </span>
             </div>
@@ -262,14 +308,14 @@ const NavigationPage = () => {
 
           {/* Subsystem Status Grid */}
           {systemStatusConfig.displayMode === "grid" && (
-            <div className="grid grid-cols-3 gap-1 mt-2">
+            <div className="grid grid-cols-3 gap-2 mt-3">
               {visibleSubsystems.map((key) => (
                 <div
                   key={key}
-                  className="bg-white/5 rounded p-1.5 text-center"
+                  className="bg-white/5 rounded p-2 text-center"
                 >
                   <div className="w-2 h-2 rounded-full bg-[#4CD7D0] mx-auto mb-0.5" />
-                  <span className="text-[7px] text-white/70 block truncate">
+                  <span className="text-[9px] text-white/70 block truncate">
                     {key.replace(/([A-Z])/g, " $1").trim()}
                   </span>
                 </div>
@@ -290,29 +336,6 @@ const NavigationPage = () => {
             </div>
           )}
         </div>
-
-        <div className="bg-on-secondary-fixed dark:bg-surface-container-low text-white dark:text-surface-container rounded-xl p-2 sm:p-3 shrink-0">
-          <div className="flex justify-between items-center mb-1.5">
-            <h3 className="font-label text-[10px] uppercase tracking-widest text-primary-container">
-              {t.voyageStatistics}
-            </h3>
-            <span className="material-symbols-outlined text-primary-container text-sm">
-              trending_up
-            </span>
-          </div>
-          <div className="h-12 sm:h-14 w-full flex items-end gap-0.5">
-            {[0.4, 0.6, 0.75, 0.8, 1, 0.9].map((height, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ height: "10%" }}
-                animate={{ height: `${height * 100}%` }}
-                transition={{ duration: 0.5, delay: 0.3 + idx * 0.1 }}
-                className="bg-primary-container/20 w-full rounded-t-sm"
-                style={idx === 4 ? { backgroundColor: "rgb(76, 215, 208)" } : {}}
-              />
-            ))}
-          </div>
-        </div>
       </motion.section>
 
       {/* Column 2: Vessel Photo */}
@@ -323,7 +346,7 @@ const NavigationPage = () => {
         className="lg:col-span-6 flex flex-col h-full min-h-[200px] lg:min-h-0"
       >
         <div className="bg-surface-container-lowest dark:bg-surface-container-lowest rounded-2xl flex-1 min-h-0 p-3 sm:p-4 relative flex flex-col shadow-sm dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 border-l-2 border-primary-container pl-3 z-20 pointer-events-none">
+          <div className="mb-3 shrink-0 border-l-2 border-primary-container pl-3 z-20 pointer-events-none">
             <span className="block text-[9px] uppercase tracking-widest opacity-50 text-on-background dark:text-on-background">
               {t.currentConfiguration}
             </span>
@@ -331,46 +354,38 @@ const NavigationPage = () => {
               {t.lux75Series}
             </h2>
           </div>
-          <div className="mt-8 min-h-0 flex-1 overflow-hidden rounded-xl bg-surface-container-high dark:bg-surface-container-high">
+          <div className="min-h-0 flex-[1_1_auto] overflow-hidden rounded-xl bg-surface-container-high dark:bg-surface-container-high">
             <img
-              src="/image/微信图片_20260519205820_68_1477.png"
+              src="/image/board.jpg"
               alt="Vessel profile"
               className="h-full w-full object-cover"
             />
           </div>
           <div className="mt-3 grid shrink-0 grid-cols-3 gap-3">
-            {[
-              { label: t.speedSog, value: `${vesselData.sog.toFixed(1)} ${t.knots}`, icon: <Gauge className="h-4 w-4" /> },
-              { label: language === "zh" ? "船首角" : "Heading", value: `${vesselData.heading}°`, icon: <ShipWheel className="h-4 w-4" /> },
-              { label: language === "zh" ? "风" : "Wind", value: `${vesselData.wind.speed} ${t.knots}`, icon: <Wind className="h-4 w-4" /> },
-            ].map((item) => (
-              <div key={item.label} className="rounded-lg bg-surface-container p-3 dark:bg-surface-container-low">
-                <div className="mb-2 flex items-center justify-between text-primary-container">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant">{item.label}</span>
-                  {item.icon}
-                </div>
-                <div className="text-lg font-black text-on-background">{item.value}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 shrink-0 rounded-xl bg-[#1A1B1F] p-3 text-white dark:bg-surface-container-low">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary-container">
-                {language === "zh" ? "仪表盘" : "Instrument Panel"}
-              </span>
-              <span className="text-[10px] text-white/40">LIVE</span>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[vesselData.sog * 10, vesselData.heading / 3.6, vesselData.wind.speed * 4, Math.abs(vesselData.pitch) * 40 + 20].map((value, idx) => (
-                <div key={idx} className="h-2 rounded-full bg-white/10">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(value, 100)}%` }}
-                    className="h-full rounded-full bg-[#4cd7d0]"
-                  />
-                </div>
-              ))}
-            </div>
+            <DialGauge
+              label={t.speedSog}
+              value={vesselData.sog.toFixed(1)}
+              unit={t.knots}
+              max={20}
+              icon={<Gauge className="h-4 w-4" />}
+              color="#4CD7D0"
+            />
+            <DialGauge
+              label={language === "zh" ? "发动机转速" : "Engine RPM"}
+              value={mainEngine.rpm || 0}
+              unit="RPM"
+              max={1200}
+              icon={<RotateCw className="h-4 w-4" />}
+              color="#0058bc"
+            />
+            <DialGauge
+              label={language === "zh" ? "发动机温度" : "Engine Temp"}
+              value={mainEngine.exhaustTemp?.toFixed(0) || 0}
+              unit="°C"
+              max={520}
+              icon={<Thermometer className="h-4 w-4" />}
+              color="#ef4444"
+            />
           </div>
         </div>
       </motion.section>

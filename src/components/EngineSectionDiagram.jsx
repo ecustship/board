@@ -1,263 +1,358 @@
 import React, { useMemo } from "react";
-import { motion } from "framer-motion";
 import { useLanguage } from "../hooks/useLanguage";
 import { useUnitSystem } from "../hooks/useUnitSystem";
 
-const arcPath = (cx, cy, r) => `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+const formatPlain = (value, digits = 1) =>
+  Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 
-const MiniGauge = ({ label, value, unit, max, accent = "#0058bc" }) => {
-  const pct = Math.max(0, Math.min(Number(value) / max, 1));
-  const angle = -150 + pct * 120;
-  const rad = (angle * Math.PI) / 180;
-  const needleX = 48 + Math.cos(rad) * 30;
-  const needleY = 48 + Math.sin(rad) * 30;
+const Panel = ({ title, children, className = "", onClick, active }) => {
+  const Tag = onClick ? "button" : "section";
+  return (
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`flex min-h-0 flex-col items-stretch justify-start rounded-lg border p-3 text-left transition-all ${
+        active
+          ? "border-[#4cd7d0] bg-[#edfffd] shadow-[0_0_0_2px_rgba(76,215,208,0.18)] dark:bg-[#123432]"
+          : "border-slate-200 bg-white/75 dark:border-white/10 dark:bg-surface-container-low/75"
+      } ${className}`}
+    >
+      <div className="mb-2 flex shrink-0 items-center justify-between">
+        <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-on-surface">{title}</span>
+        {active && <span className="h-2 w-2 rounded-full bg-[#4cd7d0] shadow-[0_0_8px_rgba(76,215,208,0.8)]" />}
+      </div>
+      <div className="min-h-0 flex-1">{children}</div>
+    </Tag>
+  );
+};
+
+const DataCell = ({ label, value, unit, tone = "normal", compact = false }) => {
+  const toneClass = {
+    normal: "text-slate-800 dark:text-on-surface",
+    good: "text-emerald-600 dark:text-emerald-300",
+    warn: "text-yellow-600 dark:text-yellow-300",
+    alarm: "text-red-600 dark:text-red-300",
+    info: "text-blue-600 dark:text-blue-300",
+  }[tone];
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white/70 p-2 shadow-sm dark:border-white/10 dark:bg-surface-container-low/70">
-      <div className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-on-surface-variant">{label}</div>
-      <svg viewBox="0 0 96 70" className="mt-1 h-16 w-full">
-        <path d={arcPath(48, 48, 34)} fill="none" stroke="#d8dee6" strokeWidth="7" strokeLinecap="round" />
+    <div
+      className={`flex min-w-0 flex-col justify-center rounded-md bg-slate-50/95 dark:bg-black/15 ${
+        compact ? "min-h-[46px] gap-1 px-3 py-1.5" : "min-h-[62px] gap-4 px-3.5 py-2.5"
+      }`}
+    >
+      <div className={`truncate font-bold uppercase tracking-wider text-slate-400 ${compact ? "text-[10px]" : "text-[11px]"}`}>{label}</div>
+      <div className={`truncate font-black leading-none ${compact ? "text-lg" : "text-xl"} ${toneClass}`}>
+        {value}
+        {unit && <span className={`ml-1 font-bold text-slate-400 ${compact ? "text-[10px]" : "text-xs"}`}>{unit}</span>}
+      </div>
+    </div>
+  );
+};
+
+const StatusCell = ({ label, active = false, alarm = false }) => (
+  <div className="flex min-h-[54px] min-w-0 items-center gap-2.5 rounded-md bg-slate-50/95 px-3.5 py-2.5 dark:bg-black/15">
+    <span
+      className={`h-3 w-3 shrink-0 rounded-full ${
+        alarm
+          ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.65)]"
+          : active
+          ? "bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"
+          : "bg-slate-300"
+      }`}
+    />
+    <span className="truncate text-xs font-bold text-slate-600 dark:text-on-surface-variant">{label}</span>
+  </div>
+);
+
+const MiniGauge = ({ label, value, unit, max, color = "#0058bc" }) => {
+  const pct = Math.max(0, Math.min((Number(value) || 0) / max, 1));
+  const angle = -130 + pct * 260;
+  return (
+    <div className="flex min-h-[180px] flex-col rounded-lg border border-slate-200 bg-white/75 px-5 py-4 dark:border-white/10 dark:bg-surface-container-low/75">
+      <div className="text-sm font-black uppercase leading-none tracking-wider text-slate-500">{label}</div>
+      <svg viewBox="0 18 92 48" className="mt-0 h-[105px] w-full shrink-0">
+        <path d="M 22 50 A 24 24 0 0 1 70 50" fill="none" stroke="#d7dee7" strokeWidth="6" strokeLinecap="round" />
         <path
-          d={arcPath(48, 48, 34)}
+          d="M 22 50 A 24 24 0 0 1 70 50"
           fill="none"
-          stroke={accent}
-          strokeWidth="7"
+          stroke={color}
+          strokeWidth="6"
           strokeLinecap="round"
-          strokeDasharray={`${pct * 107} 107`}
+          strokeDasharray={`${pct * 76} 76`}
         />
-        <line x1="48" y1="48" x2={needleX} y2={needleY} stroke="#18202a" strokeWidth="3" strokeLinecap="round" />
-        <circle cx="48" cy="48" r="4" fill={accent} />
-        <text x="48" y="66" textAnchor="middle" className="fill-slate-700 text-[10px] font-bold dark:fill-slate-200">
+        <line x1="46" y1="50" x2="46" y2="29" stroke="#1f2937" strokeWidth="3" strokeLinecap="round" transform={`rotate(${angle} 46 50)`} />
+        <circle cx="46" cy="50" r="3.5" fill={color} />
+        <text x="46" y="63" textAnchor="middle" className="fill-slate-700 text-sm font-bold dark:fill-slate-200">
           {value}
         </text>
       </svg>
-      <div className="text-center text-[8px] font-semibold text-slate-400">{unit}</div>
+      <div className="text-center text-sm font-bold leading-none text-slate-400">{unit}</div>
     </div>
   );
 };
 
-const VerticalMeter = ({ label, value, unit, max = 100, color = "#0058bc" }) => {
-  const pct = Math.max(8, Math.min((Number(value) / max) * 100, 100));
-  return (
-    <div className="flex min-w-[32px] flex-col items-center gap-1">
-      <div className="flex h-20 w-4 items-end rounded border border-slate-300 bg-white dark:border-white/10 dark:bg-surface-container-low">
-        <motion.div
-          initial={{ height: 0 }}
-          animate={{ height: `${pct}%` }}
-          className="w-full rounded-b"
-          style={{ backgroundColor: color }}
+const EngineSectionMap = ({ cylinders, formatUnit, language }) => {
+  const leftBank = cylinders.slice(0, 8);
+  const rightBank = cylinders.slice(8, 16);
+  const cylinderLabel = language === "zh" ? "缸" : "CYL";
+  const sectionLabel = language === "zh" ? "发动机剖面" : "ENGINE SECTION";
+  const renderCylinder = (item, index, bank) => {
+    const x = 100 + index * 80;
+    const y = bank === "top" ? 58 : 278;
+    const hot = item.temp >= 450;
+    const temp = formatUnit("temperature", item.temp, 0);
+    const fill = hot ? "#fee2e2" : bank === "top" ? "#e8f7f5" : "#eef2ff";
+    const stroke = hot ? "#ef4444" : bank === "top" ? "#0f766e" : "#2563eb";
+    const tag = `${item.id}`.padStart(2, "0");
+
+    return (
+      <g key={`${bank}-${item.id}`}>
+        {bank === "top" ? (
+          <line x1={x} y1={y + 58} x2={x} y2="137" stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 4" />
+        ) : (
+          <line x1={x} y1="252" x2={x} y2={y} stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 4" />
+        )}
+        <path
+          d={`M ${x - 33} ${y + 58} L ${x - 25} ${y} L ${x + 25} ${y} L ${x + 33} ${y + 58} Z`}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="2"
         />
-      </div>
-      <div className="text-[8px] font-bold text-slate-600 dark:text-on-surface">{value}</div>
-      <div className="text-[7px] text-slate-400">{unit}</div>
-      <div className="max-w-[44px] text-center text-[7px] font-bold uppercase leading-tight text-slate-500">{label}</div>
-    </div>
-  );
-};
-
-const StatusLamp = ({ label, active, tone = "green" }) => {
-  const colors = {
-    green: active ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-slate-300",
-    yellow: active ? "bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.6)]" : "bg-slate-300",
-    red: active ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" : "bg-slate-300",
+        <text x={x} y={y + 19} textAnchor="middle" fontSize="13" fontWeight="900" fill="#334155">
+          {language === "zh" ? `${tag}${cylinderLabel}` : `${cylinderLabel} ${tag}`}
+        </text>
+        <text x={x} y={y + 44} textAnchor="middle" fontSize="15" fontWeight="900" fill={hot ? "#dc2626" : stroke}>
+          {temp.value}{temp.unit}
+        </text>
+      </g>
+    );
   };
+
   return (
-    <div className="flex items-center gap-2">
-      <span className={`h-2.5 w-2.5 rounded-full ${colors[tone]}`} />
-      <span className="truncate text-[9px] text-slate-500 dark:text-on-surface-variant">{label}</span>
-    </div>
+    <svg viewBox="0 35 760 320" className="h-full min-h-0 w-full" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="engineBody46" x1="0" x2="1">
+          <stop offset="0" stopColor="#cfdce5" />
+          <stop offset="1" stopColor="#f2f6f9" />
+        </linearGradient>
+      </defs>
+
+      <rect x="10" y="78" width="46" height="24" rx="5" fill="#dcf7f3" stroke="#0f766e" strokeWidth="1.5" />
+      <text x="33" y="94" textAnchor="middle" fontSize="11" fontWeight="900" fill="#0f766e">1-8</text>
+      <rect x="10" y="278" width="46" height="24" rx="5" fill="#e8f0ff" stroke="#2563eb" strokeWidth="1.5" />
+      <text x="33" y="294" textAnchor="middle" fontSize="11" fontWeight="900" fill="#2563eb">9-16</text>
+
+      <path d="M58 197 L128 132 L632 132 L702 197 L660 252 L100 252 Z" fill="url(#engineBody46)" stroke="#718096" strokeWidth="3" />
+      <rect x="112" y="214" width="536" height="48" rx="7" fill="#dbe7ed" stroke="#718096" strokeWidth="2" />
+      <line x1="78" y1="198" x2="682" y2="198" stroke="#94a3b8" strokeWidth="2.5" />
+      <line x1="150" y1="230" x2="610" y2="230" stroke="#94a3b8" strokeWidth="2.5" />
+      <rect x="205" y="154" width="350" height="28" rx="14" fill="#eef6fa" stroke="#94a3b8" strokeWidth="2" />
+      <text x="380" y="173" textAnchor="middle" fontSize="13" fontWeight="900" fill="#475569">
+        {sectionLabel}
+      </text>
+
+      {leftBank.map((item, index) => renderCylinder(item, index, "top"))}
+      {rightBank.map((item, index) => renderCylinder(item, index, "bottom"))}
+    </svg>
   );
 };
 
-const SystemBlock = ({ title, children, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`rounded-lg border p-2 text-left transition-all ${
-      active
-        ? "border-[#4cd7d0] bg-[#ecfffd] shadow-[0_0_0_2px_rgba(76,215,208,0.15)] dark:bg-[#123432]"
-        : "border-slate-200 bg-white/70 hover:border-[#4cd7d0]/60 dark:border-white/10 dark:bg-surface-container-low/70"
-    }`}
-  >
-    <div className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-700 dark:text-on-surface">{title}</div>
-    <div className="flex gap-2">{children}</div>
-  </button>
-);
-
-const EngineSectionDiagram = ({ engine, activeSystem, onSystemClick }) => {
+const EngineSectionDiagram = ({ engine }) => {
   const { language } = useLanguage();
   const { formatUnit } = useUnitSystem();
 
-  const cylinders = useMemo(() => {
-    const temps = engine?.cylinders || [];
-    return temps.slice(0, 8).map((temp, index) => ({
-      id: `A${index + 1}`,
-      exhaust: temp,
-      linerTop: 118 + Math.round((index % 4) * 2 + Math.random() * 2),
-      linerBottom: 116 + Math.round((index % 3) * 2 + Math.random() * 2),
-    }));
-  }, [engine?.cylinders]);
+  const standard = useMemo(() => {
+    const cylinderTemps = engine?.cylinders?.length
+      ? engine.cylinders.slice(0, 16)
+      : Array.from({ length: 16 }, (_, index) => 405 + index * 3);
+    while (cylinderTemps.length < 16) {
+      cylinderTemps.push(cylinderTemps[cylinderTemps.length - 1] || 410);
+    }
 
-  const gauges = [
-    { label: "Voltage", value: engine?.voltage || 400, unit: "V", max: 500, accent: "#2563eb" },
-    { label: "Current", value: engine?.current || 462, unit: "A", max: 600, accent: "#0f766e" },
-    { label: "Frequency", value: engine?.frequency?.toFixed?.(1) || "50.0", unit: "Hz", max: 60, accent: "#7c3aed" },
-    { label: "Load", value: engine?.power || 0, unit: "kW", max: 15000, accent: "#0891b2" },
-    { label: "Speed", value: engine?.rpm || 0, unit: "RPM", max: 1600, accent: "#1d4ed8" },
-    { label: "Fuel Rack", value: Math.round((engine?.load || 0) * 0.42), unit: "mm", max: 50, accent: "#ca8a04" },
-    { label: "Load PPT", value: engine?.load || 0, unit: "%", max: 120, accent: "#dc2626" },
-  ];
+    const lbTemps = cylinderTemps.slice(0, 8);
+    const rbTemps = cylinderTemps.slice(8, 16);
+    const avg = (items) => items.reduce((sum, item) => sum + item, 0) / items.length;
+    const oilPress = engine?.oilPressure || 4.2;
+    const coolantTemp = engine?.coolantTemp || 78;
+    const lubeOilTemp = coolantTemp + 7;
+    const fuelDeliveryPress = 4.5;
 
-  const systemLabels = {
-    fuel: language === "zh" ? "燃油" : "Fuel Oil",
-    lubrication: language === "zh" ? "滑油" : "Lube Oil",
-    cooling: language === "zh" ? "冷却水" : "Cooling Water",
-    airIntake: language === "zh" ? "进排气" : "Charge Air",
+    return {
+      lubeOilPress: oilPress,
+      coolantTemperature: coolantTemp,
+      lubricatingOilTemperature: lubeOilTemp,
+      coolantPressure: 3.2,
+      seaWaterPressure: 2.8,
+      expansionTankLowAlarm: false,
+      exhaustCylinders: cylinderTemps.map((temp, index) => ({ id: index + 1, temp })),
+      fuelRailPressure: 7.6,
+      fuelDeliveryPressure: fuelDeliveryPress,
+      intakeManifoldPressureLB: 2.4,
+      intakeManifoldPressureRB: 2.6,
+      intakeManifoldTemperatureLBF: 45,
+      intakeManifoldTemperatureLBR: 47,
+      intakeManifoldTemperatureRBF: 46,
+      intakeManifoldTemperatureRBR: 48,
+      exhaustTempLB: avg(lbTemps),
+      exhaustTempRB: avg(rbTemps),
+      crankcasePressure: 12.1,
+      fuelTemperature: 38,
+      barometricPressure: 1.0,
+      lubeOilFilterDifferentialPressure: 0.52,
+      mainControlPower: 24,
+      backupControlPower: 24,
+      lowLubOilShutdownBelow1500: oilPress < 2.1,
+      lowLubOilShutdownAbove1500: oilPress < 2.8,
+      highCoolantTemperatureShutdown: coolantTemp > 95,
+      fuelLeakageAlarm: false,
+      engineSpeed: engine?.rpm || 850,
+      overspeedShutdown: (engine?.rpm || 850) > 1100,
+      localEmergencyStop: false,
+      remoteEmergencyStop: false,
+    };
+  }, [engine]);
+
+  const labels = {
+    overview: language === "zh" ? "46 参数总览" : "46-Parameter Overview",
+    cooling: language === "zh" ? "冷却系统" : "Cooling",
+    lubrication: language === "zh" ? "滑油系统" : "Lube Oil",
+    fuel: language === "zh" ? "燃油系统" : "Fuel",
+    intake: language === "zh" ? "进排气歧管" : "Intake / Exhaust",
+    cylinders: language === "zh" ? "16 缸排气温度" : "16-Cylinder Exhaust Temp",
+    control: language === "zh" ? "控制电源与停机报警" : "Control Power & Shutdown",
+  };
+  const zh = language === "zh";
+  const paramLabels = {
+    lubeOilPress: zh ? "滑油压力" : "Lube Oil Press",
+    coolantTemp: zh ? "冷却水温度" : "Coolant Temp",
+    lubeOilTemp: zh ? "滑油温度" : "Lube Oil Temp",
+    coolantPress: zh ? "冷却水压力" : "Coolant Press",
+    seaWaterPress: zh ? "海水压力" : "Sea Water Press",
+    engineSpeed: zh ? "发动机转速" : "Engine Speed",
+    lubOilTemp: zh ? "滑油温度" : "Lub. Oil Temp",
+    filterDiffPress: zh ? "滤器压差" : "Filter Diff Press",
+    crankcasePress: zh ? "曲轴箱压力" : "Crankcase Press",
+    expansionTankLow: zh ? "膨胀水箱液位低" : "Expansion Tank Level Low",
+    exhaustTempLB: zh ? "左列排气温度" : "Exhaust Temp. LB",
+    exhaustTempRB: zh ? "右列排气温度" : "Exhaust Temp. RB",
+    fuelRailPress: zh ? "燃油共轨压力" : "Fuel Rail Press",
+    fuelDeliveryPress: zh ? "燃油供给压力" : "Fuel Delivery Press",
+    fuelTemp: zh ? "燃油温度" : "Fuel Temp",
+    fuelLeakageAlarm: zh ? "燃油泄漏报警" : "Fuel Leakage Alarm",
+    manifoldPressLB: zh ? "左列歧管压力" : "Manifold Press LB",
+    manifoldPressRB: zh ? "右列歧管压力" : "Manifold Press RB",
+    tempLBF: zh ? "左列前端温度" : "Temp LBF",
+    tempLBR: zh ? "左列后端温度" : "Temp LBR",
+    tempRBF: zh ? "右列前端温度" : "Temp RBF",
+    tempRBR: zh ? "右列后端温度" : "Temp RBR",
+    barometricPress: zh ? "大气压力" : "Barometric Press",
+    mainControlPower: zh ? "主控制电源" : "Main Control Power",
+    backupControlPower: zh ? "备用控制电源" : "Backup Control Power",
+    lowLOPressBelow1500: zh ? "低滑油压力停机 <1500" : "Low LO Press SD <1500",
+    lowLOPressAbove1500: zh ? "低滑油压力停机 >1500" : "Low LO Press SD >1500",
+    highCoolantTempSD: zh ? "高冷却水温停机" : "High Coolant Temp SD",
+    overspeedShutdown: zh ? "超速停机" : "Overspeed Shutdown",
+    localEmergencyStop: zh ? "本地急停" : "Local Emergency Stop",
+    remoteEmergencyStop: zh ? "远程急停" : "Remote Emergency Stop",
+    engineRunning: zh ? "发动机运行" : "Engine Running",
   };
 
-  const exhaustMean = cylinders.length
-    ? cylinders.reduce((sum, item) => sum + item.exhaust, 0) / cylinders.length
-    : 0;
+  const pressure = (value, digits = 1) => formatUnit("pressure", value, digits);
+  const temp = (value, digits = 0) => formatUnit("temperature", value, digits);
+
+  const gauges = [
+    { label: paramLabels.lubeOilPress, value: pressure(standard.lubeOilPress, 1).value, unit: pressure(standard.lubeOilPress, 1).unit, max: 6, color: "#0058bc" },
+    { label: paramLabels.coolantTemp, value: temp(standard.coolantTemperature, 0).value, unit: temp(standard.coolantTemperature, 0).unit, max: 120, color: "#0f766e" },
+    { label: paramLabels.lubeOilTemp, value: temp(standard.lubricatingOilTemperature, 0).value, unit: temp(standard.lubricatingOilTemperature, 0).unit, max: 120, color: "#7c3aed" },
+    { label: paramLabels.coolantPress, value: pressure(standard.coolantPressure, 1).value, unit: pressure(standard.coolantPressure, 1).unit, max: 6, color: "#2563eb" },
+    { label: paramLabels.seaWaterPress, value: pressure(standard.seaWaterPressure, 1).value, unit: pressure(standard.seaWaterPressure, 1).unit, max: 6, color: "#0891b2" },
+    { label: paramLabels.engineSpeed, value: standard.engineSpeed, unit: zh ? "r/min" : "RPM", max: 1600, color: "#dc2626" },
+  ];
 
   return (
-    <div className="h-full min-h-[300px] overflow-hidden rounded-2xl border border-slate-200 bg-[#eef3f5] p-3 shadow-inner dark:border-white/10 dark:bg-[#15191d]">
-      <div className="grid h-full min-h-0 grid-rows-[auto_1fr_auto] gap-3">
-        <div className="grid grid-cols-7 gap-2">
+    <div className="h-full min-h-[300px] overflow-hidden rounded-2xl border border-slate-200 bg-[#eef3f5] p-4 shadow-inner dark:border-white/10 dark:bg-[#15191d]">
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {gauges.map((gauge) => (
             <MiniGauge key={gauge.label} {...gauge} />
           ))}
         </div>
 
-        <div className="grid min-h-0 grid-cols-[1fr_2.2fr_.8fr] gap-3">
+        <div className="grid min-h-0 grid-cols-[1.22fr_2.56fr_1.22fr] gap-3">
           <div className="flex min-h-0 flex-col gap-3">
-            <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-surface-container-low/70">
-              <div className="mb-3 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-on-surface">
-                {language === "zh" ? "发电机与轴承温度" : "Generator & Bearing Temp"}
+            <Panel title={labels.lubrication} className="flex-1">
+              <div className="grid h-full auto-rows-fr grid-cols-2 gap-3">
+                <DataCell label={paramLabels.lubeOilPress} value={pressure(standard.lubeOilPress, 1).value} unit={pressure(standard.lubeOilPress, 1).unit} />
+                <DataCell label={paramLabels.lubOilTemp} value={temp(standard.lubricatingOilTemperature, 0).value} unit={temp(standard.lubricatingOilTemperature, 0).unit} />
+                <DataCell label={paramLabels.filterDiffPress} value={pressure(standard.lubeOilFilterDifferentialPressure, 2).value} unit={pressure(standard.lubeOilFilterDifferentialPressure, 2).unit} />
+                <DataCell label={paramLabels.crankcasePress} value={formatPlain(standard.crankcasePressure, 1)} unit="mmH2O" />
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {[
-                  ["BRG NDE", 65],
-                  ["U", 72],
-                  ["V", 73],
-                  ["W", 73],
-                  ["BRG DE", 58],
-                ].map(([label, value]) => (
-                  <VerticalMeter key={label} label={label} value={value} unit="°C" max={100} color="#0058bc" />
-                ))}
+            </Panel>
+
+            <Panel title={labels.cooling} className="flex-1">
+              <div className="grid h-full auto-rows-fr grid-cols-2 gap-3">
+                <DataCell label={paramLabels.coolantTemp} value={temp(standard.coolantTemperature, 0).value} unit={temp(standard.coolantTemperature, 0).unit} />
+                <DataCell label={paramLabels.coolantPress} value={pressure(standard.coolantPressure, 1).value} unit={pressure(standard.coolantPressure, 1).unit} />
+                <DataCell label={paramLabels.seaWaterPress} value={pressure(standard.seaWaterPressure, 1).value} unit={pressure(standard.seaWaterPressure, 1).unit} />
+                <StatusCell label={paramLabels.expansionTankLow} alarm={standard.expansionTankLowAlarm} />
               </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-surface-container-low/70">
-              <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-on-surface">
-                {language === "zh" ? "状态" : "Status"}
-              </div>
-              <div className="grid grid-cols-1 gap-1.5">
-                <StatusLamp label={language === "zh" ? "本地控制" : "Local Control"} active />
-                <StatusLamp label={language === "zh" ? "转速开关 90%" : "Speed Switch 90%"} active />
-                <StatusLamp label={language === "zh" ? "准备启动" : "Ready To Start"} active={false} tone="yellow" />
-                <StatusLamp label={language === "zh" ? "AVR 故障" : "AVR Failure"} active={false} tone="red" />
-              </div>
-            </div>
+            </Panel>
           </div>
 
-          <div className="relative min-h-0 rounded-xl border border-slate-200 bg-white/60 p-3 dark:border-white/10 dark:bg-surface-container-low/60">
-            <div className="absolute left-4 top-3 text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-on-surface">
-              {language === "zh" ? "柴油机剖面监控" : "Diesel Engine Section"}
-            </div>
-            <svg viewBox="0 0 720 260" className="h-full w-full pt-6">
-              <defs>
-                <linearGradient id="sectionBody" x1="0" x2="1">
-                  <stop offset="0" stopColor="#c9d6df" />
-                  <stop offset="1" stopColor="#eef3f7" />
-                </linearGradient>
-              </defs>
-              <path d="M45 155 L95 105 L625 105 L675 155 L640 190 L80 190 Z" fill="url(#sectionBody)" stroke="#718096" strokeWidth="2" />
-              <rect x="75" y="185" width="570" height="32" fill="#dbe4ea" stroke="#718096" strokeWidth="1.5" />
-              <line x1="45" y1="155" x2="675" y2="155" stroke="#94a3b8" strokeWidth="2" />
-              {cylinders.map((cylinder, index) => {
-                const x = 115 + index * 70;
-                const temp = formatUnit("temperature", cylinder.exhaust, 0);
-                const hot = cylinder.exhaust > 450;
-                return (
-                  <g key={cylinder.id}>
-                    <path d={`M ${x - 24} 150 L ${x - 12} 118 L ${x + 24} 118 L ${x + 36} 150 Z`} fill={hot ? "#fee2e2" : "#e8f7f5"} stroke={hot ? "#dc2626" : "#0f766e"} />
-                    <text x={x + 6} y="111" textAnchor="middle" fontSize="12" fontWeight="700" fill="#334155">{cylinder.id}</text>
-                    <text x={x + 6} y="139" textAnchor="middle" fontSize="11" fontWeight="700" fill={hot ? "#dc2626" : "#0f766e"}>{temp.value}{temp.unit}</text>
-                    <line x1={x + 6} y1="155" x2={x + 6} y2="218" stroke="#94a3b8" strokeWidth="1" />
-                    <text x={x + 6} y="177" textAnchor="middle" fontSize="10" fill="#475569">{formatUnit("temperature", cylinder.linerTop, 0).value}</text>
-                    <text x={x + 6} y="205" textAnchor="middle" fontSize="10" fill="#475569">{formatUnit("temperature", cylinder.linerBottom, 0).value}</text>
-                  </g>
-                );
-              })}
-              <text x="360" y="88" textAnchor="middle" fontSize="14" fontWeight="800" fill="#1e293b">EXHAUST GAS TEMP</text>
-              <text x="360" y="172" textAnchor="middle" fontSize="14" fontWeight="800" fill="#1e293b">CYLINDER LINER TEMP</text>
-              <text x="360" y="239" textAnchor="middle" fontSize="13" fontWeight="800" fill="#1e293b">MAIN BEARING TEMP</text>
-            </svg>
-          </div>
+          <Panel title={labels.cylinders} className="min-h-0">
+            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <DataCell label={paramLabels.exhaustTempLB} value={temp(standard.exhaustTempLB, 0).value} unit={temp(standard.exhaustTempLB, 0).unit} tone="info" />
+                <DataCell label={paramLabels.exhaustTempRB} value={temp(standard.exhaustTempRB, 0).value} unit={temp(standard.exhaustTempRB, 0).unit} tone="info" />
+              </div>
 
-          <div className="flex min-h-0 flex-col gap-3">
-            <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-surface-container-low/70">
-              <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-on-surface">
-                Exhaust Gas Deviation
-              </div>
-              <div className="flex items-end justify-between gap-1">
-                {cylinders.map((cylinder) => {
-                  const deviation = Math.round(cylinder.exhaust - exhaustMean);
-                  return (
-                    <div key={cylinder.id} className="flex flex-col items-center gap-1">
-                      <div className="relative h-20 w-3 rounded bg-slate-200 dark:bg-surface-container-high">
-                        <div
-                          className="absolute left-0 w-full rounded bg-[#79ff5b]"
-                          style={{
-                            bottom: deviation >= 0 ? "50%" : `${50 + deviation}%`,
-                            height: `${Math.min(Math.abs(deviation) * 2, 45)}%`,
-                          }}
-                        />
-                      </div>
-                      <span className="text-[7px] text-slate-500">{cylinder.id.replace("A", "")}</span>
-                      <span className="text-[7px] font-bold text-slate-600">{deviation}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-2 text-center text-[9px] text-slate-500">
-                Mean {formatUnit("temperature", exhaustMean, 0).text}
+              <div className="flex min-h-0 items-center justify-center">
+                <EngineSectionMap cylinders={standard.exhaustCylinders} formatUnit={formatUnit} language={language} />
               </div>
             </div>
+          </Panel>
 
-            <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-surface-container-low/70">
-              <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-on-surface">
-                Turbocharger
+          <div className="flex min-h-0 flex-col gap-4">
+            <Panel title={labels.fuel} className="flex-[0.8]">
+              <div className="grid h-full auto-rows-fr grid-cols-2 gap-3">
+                <DataCell label={paramLabels.fuelRailPress} value={pressure(standard.fuelRailPressure, 1).value} unit={pressure(standard.fuelRailPressure, 1).unit} />
+                <DataCell label={paramLabels.fuelDeliveryPress} value={pressure(standard.fuelDeliveryPressure, 1).value} unit={pressure(standard.fuelDeliveryPressure, 1).unit} />
+                <DataCell label={paramLabels.fuelTemp} value={temp(standard.fuelTemperature, 0).value} unit={temp(standard.fuelTemperature, 0).unit} />
+                <StatusCell label={paramLabels.fuelLeakageAlarm} alarm={standard.fuelLeakageAlarm} />
               </div>
-              <div className="space-y-2 text-[10px]">
-                <div className="flex justify-between"><span>TC OUT</span><b>{formatUnit("temperature", engine?.exhaustTemp || 0, 0).text}</b></div>
-                <div className="flex justify-between"><span>TC IN</span><b>{formatUnit("temperature", (engine?.exhaustTemp || 0) + 140, 0).text}</b></div>
-                <div className="flex justify-between"><span>T/C Speed</span><b>{Math.round((engine?.turboSpeed || 0) * 1400)} rpm</b></div>
+            </Panel>
+
+            <Panel title={labels.intake} className="flex-[1.2]">
+              <div className="grid h-full auto-rows-fr grid-cols-2 gap-2 overflow-y-auto pr-1">
+                <DataCell compact label={paramLabels.manifoldPressLB} value={pressure(standard.intakeManifoldPressureLB, 1).value} unit={pressure(standard.intakeManifoldPressureLB, 1).unit} />
+                <DataCell compact label={paramLabels.manifoldPressRB} value={pressure(standard.intakeManifoldPressureRB, 1).value} unit={pressure(standard.intakeManifoldPressureRB, 1).unit} />
+                <DataCell compact label={paramLabels.tempLBF} value={temp(standard.intakeManifoldTemperatureLBF, 0).value} unit={temp(standard.intakeManifoldTemperatureLBF, 0).unit} />
+                <DataCell compact label={paramLabels.tempLBR} value={temp(standard.intakeManifoldTemperatureLBR, 0).value} unit={temp(standard.intakeManifoldTemperatureLBR, 0).unit} />
+                <DataCell compact label={paramLabels.tempRBF} value={temp(standard.intakeManifoldTemperatureRBF, 0).value} unit={temp(standard.intakeManifoldTemperatureRBF, 0).unit} />
+                <DataCell compact label={paramLabels.tempRBR} value={temp(standard.intakeManifoldTemperatureRBR, 0).value} unit={temp(standard.intakeManifoldTemperatureRBR, 0).unit} />
+                <DataCell compact label={paramLabels.barometricPress} value={pressure(standard.barometricPressure, 1).value} unit={pressure(standard.barometricPressure, 1).unit} />
               </div>
-            </div>
+            </Panel>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
-          <SystemBlock title={systemLabels.fuel} active={activeSystem === "fuel"} onClick={() => onSystemClick("fuel")}>
-            <VerticalMeter label="Press In" value={formatUnit("pressure", 7.6, 1).value} unit={formatUnit("pressure", 7.6, 1).unit} max={10} color="#ca8a04" />
-            <VerticalMeter label="Temp In" value={formatUnit("temperature", 100, 0).value} unit={formatUnit("temperature", 100, 0).unit} max={130} color="#ca8a04" />
-            <VerticalMeter label="Filter Diff" value={formatUnit("pressure", 0.3, 1).value} unit={formatUnit("pressure", 0.3, 1).unit} max={2} color="#ca8a04" />
-          </SystemBlock>
-          <SystemBlock title={systemLabels.lubrication} active={activeSystem === "lubrication"} onClick={() => onSystemClick("lubrication")}>
-            <VerticalMeter label="Press In" value={formatUnit("pressure", engine?.oilPressure || 0, 1).value} unit={formatUnit("pressure", engine?.oilPressure || 0, 1).unit} max={6} color="#0058bc" />
-            <VerticalMeter label="Temp In" value={formatUnit("temperature", 65, 0).value} unit={formatUnit("temperature", 65, 0).unit} max={110} color="#0058bc" />
-            <VerticalMeter label="Temp Out" value={formatUnit("temperature", 95, 0).value} unit={formatUnit("temperature", 95, 0).unit} max={120} color="#0058bc" />
-          </SystemBlock>
-          <SystemBlock title={systemLabels.airIntake} active={activeSystem === "airIntake"} onClick={() => onSystemClick("airIntake")}>
-            <VerticalMeter label="Press In" value={formatUnit("pressure", 2.9, 1).value} unit={formatUnit("pressure", 2.9, 1).unit} max={5} color="#0f766e" />
-            <VerticalMeter label="Temp In" value={formatUnit("temperature", 54.3, 1).value} unit={formatUnit("temperature", 54.3, 1).unit} max={90} color="#0f766e" />
-            <VerticalMeter label="Ctrl Air" value={formatUnit("pressure", 25.5, 1).value} unit={formatUnit("pressure", 25.5, 1).unit} max={35} color="#0f766e" />
-          </SystemBlock>
-          <SystemBlock title={systemLabels.cooling} active={activeSystem === "cooling"} onClick={() => onSystemClick("cooling")}>
-            <VerticalMeter label="HT In" value={formatUnit("temperature", engine?.coolantTemp || 0, 1).value} unit={formatUnit("temperature", engine?.coolantTemp || 0, 1).unit} max={120} color="#2563eb" />
-            <VerticalMeter label="HT Out" value={formatUnit("temperature", (engine?.coolantTemp || 0) + 7, 1).value} unit={formatUnit("temperature", (engine?.coolantTemp || 0) + 7, 1).unit} max={120} color="#2563eb" />
-            <VerticalMeter label="LT Out" value={formatUnit("temperature", 49.6, 1).value} unit={formatUnit("temperature", 49.6, 1).unit} max={80} color="#2563eb" />
-          </SystemBlock>
-        </div>
+        <Panel title={labels.control}>
+          <div className="grid h-full auto-rows-fr grid-cols-9 gap-3">
+            <DataCell label={paramLabels.mainControlPower} value={formatPlain(standard.mainControlPower, 0)} unit="V" tone="good" />
+            <DataCell label={paramLabels.backupControlPower} value={formatPlain(standard.backupControlPower, 0)} unit="V" tone="good" />
+            <StatusCell label={paramLabels.lowLOPressBelow1500} alarm={standard.lowLubOilShutdownBelow1500} />
+            <StatusCell label={paramLabels.lowLOPressAbove1500} alarm={standard.lowLubOilShutdownAbove1500} />
+            <StatusCell label={paramLabels.highCoolantTempSD} alarm={standard.highCoolantTemperatureShutdown} />
+            <StatusCell label={paramLabels.overspeedShutdown} alarm={standard.overspeedShutdown} />
+            <StatusCell label={paramLabels.localEmergencyStop} alarm={standard.localEmergencyStop} />
+            <StatusCell label={paramLabels.remoteEmergencyStop} alarm={standard.remoteEmergencyStop} />
+            <StatusCell label={paramLabels.engineRunning} active />
+          </div>
+        </Panel>
       </div>
     </div>
   );

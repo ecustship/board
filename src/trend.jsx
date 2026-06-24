@@ -94,7 +94,7 @@ const TrendChart = ({ title, data, metrics, startOffsetMinutes, durationMinutes 
       <div className="relative min-h-0 flex-1">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="h-full min-h-[220px] w-full"
+          className="h-full min-h-0 w-full"
           preserveAspectRatio="none"
           onMouseMove={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
@@ -223,7 +223,7 @@ const Trend = () => {
         </div>
       </div>
 
-      <div className={`grid min-h-0 flex-1 gap-3 ${screenMode === "split" ? "grid-cols-2" : "grid-cols-1"}`}>
+      <div className={`grid min-h-0 flex-1 gap-3 ${screenMode === "split" ? "grid-cols-1 grid-rows-2" : "grid-cols-1 grid-rows-1"}`}>
         {screens.map((screen) => (
           <div key={screen.key} className="flex min-h-0 flex-col gap-2">
             <div className="flex flex-wrap gap-2">

@@ -1,10 +1,12 @@
 import React, { useEffect, Suspense, useState, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
+import { OrbitControls, useGLTF, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
+const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine.glb';
+
 function EngineModelInner({ faultAlarm }) {
-  const { scene } = useGLTF('/internal_combustion_engine/scene.gltf', true);
+  const { scene } = useGLTF(MAIN_ENGINE_MODEL_PATH, true);
   const [ready, setReady] = useState(false);
   const groupRef = useRef();
 
@@ -24,7 +26,7 @@ function EngineModelInner({ faultAlarm }) {
     box.getCenter(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const targetSize = 8.62;
+    const targetSize = 12.93;
     const scale = targetSize / maxDim;
 
     // Apply scale then re-measure to compute the scaled center precisely
@@ -44,11 +46,12 @@ function EngineModelInner({ faultAlarm }) {
         child.castShadow = true;
         child.receiveShadow = true;
         if (child.material) {
-          child.material = new THREE.MeshStandardMaterial({
-            color: child.material.color ? child.material.color.clone() : new THREE.Color(0x888888),
-            metalness: 0.6,
-            roughness: 0.4,
-          });
+          if (!child.material._originalEmissive) {
+            child.material._originalEmissive = child.material.emissive
+              ? child.material.emissive.clone()
+              : new THREE.Color(0, 0, 0);
+          }
+          child.material.needsUpdate = true;
         }
       }
     });
@@ -61,25 +64,21 @@ function EngineModelInner({ faultAlarm }) {
     if (faultAlarm) {
       const t = clock.getElapsedTime();
       const intensity = Math.sin(t * 4) * 0.5 + 0.5;
-      groupRef.current.children.forEach((child) => {
+      groupRef.current.traverse((child) => {
         if (child.isMesh && child.material) {
-          if (!child._originalEmissive) {
-            child._originalEmissive = child.material.emissive
-              ? child.material.emissive.clone()
-              : new THREE.Color(0, 0, 0);
-          }
+          const original = child.material._originalEmissive || new THREE.Color(0, 0, 0);
           child.material.emissive = new THREE.Color(
-            child._originalEmissive.r + 0.3 * intensity,
-            child._originalEmissive.g * (1 - intensity * 0.8),
-            child._originalEmissive.b * (1 - intensity * 0.8)
+            original.r + 0.35 * intensity,
+            original.g * (1 - intensity * 0.6),
+            original.b * (1 - intensity * 0.6)
           );
-          child.material.emissiveIntensity = intensity * 2;
+          child.material.emissiveIntensity = intensity * 1.8;
         }
       });
     } else {
-      groupRef.current.children.forEach((child) => {
-        if (child.isMesh && child.material && child._originalEmissive) {
-          child.material.emissive = child._originalEmissive.clone();
+      groupRef.current.traverse((child) => {
+        if (child.isMesh && child.material && child.material._originalEmissive) {
+          child.material.emissive = child.material._originalEmissive.clone();
           child.material.emissiveIntensity = 0;
         }
       });
@@ -87,7 +86,7 @@ function EngineModelInner({ faultAlarm }) {
   });
 
   if (!ready) return null;
-  return <group ref={groupRef}><primitive object={scene} /></group>;
+  return <group ref={groupRef} scale={1.5}><primitive object={scene} /></group>;
 }
 
 function CenterLockedControls({ autoRotate = false, autoRotateSpeed = 0.6 }) {
@@ -219,7 +218,7 @@ export function YachtModel({ rotationY = 0, autoRotate = true, faultAlarm = fals
 export function EngineModel({ autoRotate = true, faultAlarm = false }) {
   return (
     <div className="w-full h-full" style={{ minHeight: '300px' }}>
-      <Canvas camera={{ position: [0, 0.9, 3.1], fov: 38 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
+      <Canvas camera={{ position: [0, 0.8, 2.25], fov: 32 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
         <color attach="background" args={['#f0f0f0']} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow shadow-mapSize={[2048, 2048]} />
@@ -267,5 +266,5 @@ export function TrendEngineModel() {
 }
 
 // 预加载模型
-useGLTF.preload('/internal_combustion_engine/scene.gltf', true);
+useGLTF.preload(MAIN_ENGINE_MODEL_PATH, true);
 useGLTF.preload('/costa_voyager/scene.gltf', true);
