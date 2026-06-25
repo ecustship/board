@@ -20,8 +20,8 @@ const Panel = ({ title, children, className = "", onClick, active }) => {
           : "border-slate-200 bg-white/75 dark:border-white/10 dark:bg-surface-container-low/75"
       } ${className}`}
     >
-      <div className="mb-2 flex shrink-0 items-center justify-between">
-        <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-on-surface">{title}</span>
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+        <span className="break-words text-xs font-black uppercase leading-tight tracking-wider text-slate-700 dark:text-on-surface">{title}</span>
         {active && <span className="h-2 w-2 rounded-full bg-[#4cd7d0] shadow-[0_0_8px_rgba(76,215,208,0.8)]" />}
       </div>
       <div className="min-h-0 flex-1">{children}</div>
@@ -41,11 +41,11 @@ const DataCell = ({ label, value, unit, tone = "normal", compact = false }) => {
   return (
     <div
       className={`flex min-w-0 flex-col justify-center rounded-md bg-slate-50/95 dark:bg-black/15 ${
-        compact ? "min-h-[46px] gap-1 px-3 py-1.5" : "min-h-[62px] gap-4 px-3.5 py-2.5"
+        compact ? "min-h-[42px] gap-1 px-2.5 py-1.5" : "min-h-[66px] gap-2 px-3 py-2.5"
       }`}
     >
-      <div className={`truncate font-bold uppercase tracking-wider text-slate-400 ${compact ? "text-[10px]" : "text-[11px]"}`}>{label}</div>
-      <div className={`truncate font-black leading-none ${compact ? "text-lg" : "text-xl"} ${toneClass}`}>
+      <div className={`whitespace-normal break-words font-bold uppercase leading-tight tracking-wider text-slate-400 ${compact ? "text-[9px]" : "text-[10px]"}`}>{label}</div>
+      <div className={`whitespace-normal break-words font-black leading-none ${compact ? "text-base" : "text-xl"} ${toneClass}`}>
         {value}
         {unit && <span className={`ml-1 font-bold text-slate-400 ${compact ? "text-[10px]" : "text-xs"}`}>{unit}</span>}
       </div>
@@ -54,7 +54,7 @@ const DataCell = ({ label, value, unit, tone = "normal", compact = false }) => {
 };
 
 const StatusCell = ({ label, active = false, alarm = false }) => (
-  <div className="flex min-h-[54px] min-w-0 items-center gap-2.5 rounded-md bg-slate-50/95 px-3.5 py-2.5 dark:bg-black/15">
+  <div className="flex min-h-[54px] min-w-0 items-center gap-2.5 rounded-md bg-slate-50/95 px-3 py-2 dark:bg-black/15">
     <span
       className={`h-3 w-3 shrink-0 rounded-full ${
         alarm
@@ -64,7 +64,7 @@ const StatusCell = ({ label, active = false, alarm = false }) => (
           : "bg-slate-300"
       }`}
     />
-    <span className="truncate text-xs font-bold text-slate-600 dark:text-on-surface-variant">{label}</span>
+    <span className="whitespace-normal break-words text-[11px] font-bold leading-tight text-slate-600 dark:text-on-surface-variant">{label}</span>
   </div>
 );
 
@@ -73,7 +73,7 @@ const MiniGauge = ({ label, value, unit, max, color = "#0058bc" }) => {
   const angle = -130 + pct * 260;
   return (
     <div className="flex min-h-[180px] flex-col rounded-lg border border-slate-200 bg-white/75 px-5 py-4 dark:border-white/10 dark:bg-surface-container-low/75">
-      <div className="text-sm font-black uppercase leading-none tracking-wider text-slate-500">{label}</div>
+      <div className="min-h-[28px] break-words text-[13px] font-black uppercase leading-tight tracking-wider text-slate-500">{label}</div>
       <svg viewBox="0 18 92 48" className="mt-0 h-[105px] w-full shrink-0">
         <path d="M 22 50 A 24 24 0 0 1 70 50" fill="none" stroke="#d7dee7" strokeWidth="6" strokeLinecap="round" />
         <path
@@ -316,9 +316,9 @@ const EngineSectionDiagram = ({ engine }) => {
             </div>
           </Panel>
 
-          <div className="flex min-h-0 flex-col gap-4">
-            <Panel title={labels.fuel} className="flex-[0.8]">
-              <div className="grid h-full auto-rows-fr grid-cols-2 gap-3">
+          <div className="flex min-h-0 flex-col gap-3">
+            <Panel title={labels.fuel} className="flex-[0.7]">
+              <div className="grid h-full auto-rows-fr grid-cols-2 gap-2.5">
                 <DataCell label={paramLabels.fuelRailPress} value={pressure(standard.fuelRailPressure, 1).value} unit={pressure(standard.fuelRailPressure, 1).unit} />
                 <DataCell label={paramLabels.fuelDeliveryPress} value={pressure(standard.fuelDeliveryPressure, 1).value} unit={pressure(standard.fuelDeliveryPressure, 1).unit} />
                 <DataCell label={paramLabels.fuelTemp} value={temp(standard.fuelTemperature, 0).value} unit={temp(standard.fuelTemperature, 0).unit} />
@@ -326,8 +326,8 @@ const EngineSectionDiagram = ({ engine }) => {
               </div>
             </Panel>
 
-            <Panel title={labels.intake} className="flex-[1.2]">
-              <div className="grid h-full auto-rows-fr grid-cols-2 gap-2 overflow-y-auto pr-1">
+            <Panel title={labels.intake} className="flex-[1.3]">
+              <div className="grid h-full auto-rows-fr grid-cols-2 gap-2">
                 <DataCell compact label={paramLabels.manifoldPressLB} value={pressure(standard.intakeManifoldPressureLB, 1).value} unit={pressure(standard.intakeManifoldPressureLB, 1).unit} />
                 <DataCell compact label={paramLabels.manifoldPressRB} value={pressure(standard.intakeManifoldPressureRB, 1).value} unit={pressure(standard.intakeManifoldPressureRB, 1).unit} />
                 <DataCell compact label={paramLabels.tempLBF} value={temp(standard.intakeManifoldTemperatureLBF, 0).value} unit={temp(standard.intakeManifoldTemperatureLBF, 0).unit} />
