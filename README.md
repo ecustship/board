@@ -1,5 +1,23 @@
 # Getting Started with Create React App
 
+## Backend API Contract
+
+Front-end and back-end integration is standardized in:
+
+- `docs/frontend-backend-json-api-standard.md`
+
+All production data should be fetched from the back-end API. Configure the API base URL with:
+
+```bash
+REACT_APP_API_BASE_URL=/api/v1
+```
+
+For separated deployment, set it to the full back-end address, for example:
+
+```bash
+REACT_APP_API_BASE_URL=http://127.0.0.1:8080/api/v1
+```
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

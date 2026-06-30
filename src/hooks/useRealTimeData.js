@@ -1,4 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { buildApiPath } from "../api/client";
+import { API_ENDPOINTS, DEFAULT_API_CONTEXT } from "../api/contracts";
+import { useApiResource } from "../api/useApiResource";
+
+const DATA_SOURCE = process.env.REACT_APP_DATA_SOURCE || "mock";
+const USE_BACKEND = DATA_SOURCE === "backend";
+const DEFAULT_VESSEL_ID = process.env.REACT_APP_VESSEL_ID || DEFAULT_API_CONTEXT.vesselId;
+
+const unwrapEngines = (data) => data?.engines || data || initialEngineData;
+const unwrapTrendPoints = (data) =>
+  (data?.points || data || []).map((point) => ({
+    ...point,
+    time: point.time ? new Date(point.time) : new Date(point.timestamp),
+  }));
 
 // 生成随机范围内的数值
 const randomInRange = (min, max, decimals = 1) => {
@@ -190,6 +204,17 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
   }, [updateInterval, smoothingFilter]);
 
   return data;
+};
+
+const useBackendOrMock = (path, intervalMs, mockValue, transform = (data) => data) => {
+  const resource = useApiResource(path, {
+    enabled: USE_BACKEND,
+    intervalMs,
+    initialData: mockValue,
+    transform,
+  });
+
+  return USE_BACKEND ? resource.data || mockValue : mockValue;
 };
 
 // 自定义钩子：实时引擎数据
@@ -481,12 +506,21 @@ export const useSystemStatus = (updateInterval = 1500) => {
 export const useTrendData = (hours = 24, points = 100) => {
   const [data, setData] = useState(() => {
     const now = Date.now();
+    const start = now - hours * 3600000;
     return Array.from({ length: points }, (_, i) => ({
-      time: new Date(now - (points - i) * (hours * 3600000 / points)),
+      time: new Date(start + i * (hours * 3600000 / Math.max(points - 1, 1))),
       temperature: randomInRange(400, 450),
       pressure: randomInRange(75, 90),
       rpm: randomInRange(800, 900),
       power: randomInRange(10000, 14000),
+      lubeOilPressure: randomInRange(3.5, 4.8),
+      coolantTemp: randomInRange(72, 88),
+      lubeOilTemp: randomInRange(78, 92),
+      fuelPressure: randomInRange(6.8, 8.4),
+      fuelTemp: randomInRange(32, 46),
+      load: randomInRange(60, 95),
+      vesselSpeed: randomInRange(8, 16),
+      windSpeed: randomInRange(5, 28),
     }));
   });
 
@@ -501,6 +535,14 @@ export const useTrendData = (hours = 24, points = 100) => {
           pressure: fluctuate(lastPoint.pressure, 70, 95, 0.01),
           rpm: Math.round(fluctuate(lastPoint.rpm, 750, 950, 0.01)),
           power: Math.round(fluctuate(lastPoint.power, 9000, 15000, 0.02)),
+          lubeOilPressure: fluctuate(lastPoint.lubeOilPressure, 3.2, 5.0, 0.015),
+          coolantTemp: fluctuate(lastPoint.coolantTemp, 68, 96, 0.012),
+          lubeOilTemp: fluctuate(lastPoint.lubeOilTemp, 72, 98, 0.012),
+          fuelPressure: fluctuate(lastPoint.fuelPressure, 6.2, 8.8, 0.015),
+          fuelTemp: fluctuate(lastPoint.fuelTemp, 28, 52, 0.012),
+          load: fluctuate(lastPoint.load, 45, 100, 0.02),
+          vesselSpeed: fluctuate(lastPoint.vesselSpeed, 6, 18, 0.02),
+          windSpeed: fluctuate(lastPoint.windSpeed, 0, 34, 0.025),
         });
         return newData;
       });

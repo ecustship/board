@@ -70,6 +70,8 @@ const NavigationPage = () => {
   });
 
   const systemStatus = useSystemStatus(1500);
+  const latestDataTimestamp = new Date();
+  const nextRefreshAt = new Date(latestDataTimestamp.getTime() + realtimeDataConfig.refreshRate);
 
   const subsystems = systemStatusConfig.subsystems;
 
@@ -453,6 +455,51 @@ const NavigationPage = () => {
                 )}
               </motion.div>
             ))}
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="rounded-lg border border-white/10 bg-white/5 p-3"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#4CD7D0] shadow-[0_0_8px_rgba(76,215,208,0.9)]" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+                    {language === "zh" ? "时间戳更新节点" : "Timestamp Node"}
+                  </span>
+                </div>
+                <span className="rounded-full bg-[#4CD7D0]/15 px-2 py-0.5 text-[9px] font-black uppercase text-[#4CD7D0]">
+                  {language === "zh" ? "在线" : "Online"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div className="rounded bg-black/10 p-2">
+                  <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "当前时间戳" : "Current TS"}</div>
+                  <div className="mt-1 font-mono font-bold text-primary-container">
+                    {latestDataTimestamp.toLocaleString(language === "zh" ? "zh-CN" : "en-US", { hour12: false })}
+                  </div>
+                </div>
+                <div className="rounded bg-black/10 p-2">
+                  <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "刷新周期" : "Refresh"}</div>
+                  <div className="mt-1 font-mono font-bold text-primary-container">
+                    {(realtimeDataConfig.refreshRate / 1000).toFixed(1)}s
+                  </div>
+                </div>
+                <div className="rounded bg-black/10 p-2">
+                  <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "下一节点" : "Next Node"}</div>
+                  <div className="mt-1 font-mono font-bold text-primary-container">
+                    {nextRefreshAt.toLocaleTimeString(language === "zh" ? "zh-CN" : "en-US", { hour12: false })}
+                  </div>
+                </div>
+                <div className="rounded bg-black/10 p-2">
+                  <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "数据源" : "Source"}</div>
+                  <div className="mt-1 font-mono font-bold text-primary-container">
+                    MODBUS/RS485
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </motion.section>

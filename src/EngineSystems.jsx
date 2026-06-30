@@ -70,6 +70,8 @@ const EngineSystems = () => {
 
   // Dynamic bottom metrics based on engine data
   const activeEngineData = engineData[activeEngine] || {};
+  const latestDataTimestamp = new Date();
+  const nextRefreshAt = new Date(latestDataTimestamp.getTime() + 2000);
   const voltage = activeEngineData.voltage || 400;
   const current = activeEngineData.current || 450;
   const powerFactor = activeEngineData.powerFactor || 0.84;
@@ -181,6 +183,50 @@ const EngineSystems = () => {
               {engineData[activeEngine]?.status === 'running' ? t.healthySystem : t.standbyMode}
             </p>
             <DiagnoseIndicator active={engineData[activeEngine]?.status === 'running'} />
+          </motion.div>
+
+          {/* Card 4: Timestamp Node */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-[#121212] dark:bg-surface-container-lowest rounded-xl p-3 shadow-xl w-full text-white dark:text-on-surface"
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#4CD7D0] shadow-[0_0_8px_rgba(76,215,208,0.9)]" />
+                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-300">
+                  TIMESTAMP NODE
+                </span>
+              </div>
+              <span className="rounded-full bg-[#4CD7D0]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#4CD7D0]">
+                Online
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 text-[10px]">
+              <div className="rounded bg-white/5 p-2">
+                <div className="uppercase tracking-wider text-gray-500">Current TS</div>
+                <div className="mt-1 font-mono font-bold text-[#4CD7D0]">
+                  {latestDataTimestamp.toLocaleString(undefined, { hour12: false })}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded bg-white/5 p-2">
+                  <div className="uppercase tracking-wider text-gray-500">Refresh</div>
+                  <div className="mt-1 font-mono font-bold text-[#4CD7D0]">2.0s</div>
+                </div>
+                <div className="rounded bg-white/5 p-2">
+                  <div className="uppercase tracking-wider text-gray-500">Next</div>
+                  <div className="mt-1 font-mono font-bold text-[#4CD7D0]">
+                    {nextRefreshAt.toLocaleTimeString(undefined, { hour12: false })}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded bg-white/5 p-2">
+                <div className="uppercase tracking-wider text-gray-500">Source</div>
+                <div className="mt-1 font-mono font-bold text-[#4CD7D0]">MODBUS/RS485</div>
+              </div>
+            </div>
           </motion.div>
         </aside>
 
