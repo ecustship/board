@@ -1,6 +1,7 @@
 import { API_VERSION, DEFAULT_API_CONTEXT, normalizeApiEnvelope } from "./contracts";
 
 const trimSlashes = (value) => String(value || "").replace(/^\/+|\/+$/g, "");
+const isAbsoluteUrl = (value) => /^https?:\/\//i.test(String(value || ""));
 
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || `/api/${API_VERSION}`;
 
@@ -10,8 +11,10 @@ export const buildApiPath = (template, params = {}) => {
 };
 
 export const buildApiUrl = (path, query = {}) => {
-  const base = trimSlashes(API_BASE_URL);
-  const url = new URL(`${base ? `/${base}` : ""}/${trimSlashes(path)}`, window.location.origin);
+  const cleanPath = trimSlashes(path);
+  const url = isAbsoluteUrl(API_BASE_URL)
+    ? new URL(`${API_BASE_URL.replace(/\/+$/g, "")}/${cleanPath}`)
+    : new URL(`/${trimSlashes(API_BASE_URL)}/${cleanPath}`, window.location.origin);
 
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
@@ -24,8 +27,13 @@ export const buildApiUrl = (path, query = {}) => {
 
 export const apiRequest = async (path, options = {}) => {
   const { query, signal, headers, ...fetchOptions } = options;
+  const body =
+    fetchOptions.body && typeof fetchOptions.body !== "string"
+      ? JSON.stringify(fetchOptions.body)
+      : fetchOptions.body;
   const response = await fetch(buildApiUrl(path, query), {
     ...fetchOptions,
+    body,
     signal,
     headers: {
       Accept: "application/json",

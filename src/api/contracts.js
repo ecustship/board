@@ -6,6 +6,7 @@ export const API_ENDPOINTS = {
   engines: "/vessels/{vesselId}/engines",
   navigation: "/vessels/{vesselId}/navigation",
   alarms: "/vessels/{vesselId}/alarms",
+  acknowledgeAlarm: "/vessels/{vesselId}/alarms/{alarmId}/acknowledge",
   systemStatus: "/vessels/{vesselId}/system-status",
   trend: "/vessels/{vesselId}/trend",
   pointTableVersions: "/vessels/{vesselId}/devices/{deviceId}/point-table-versions",

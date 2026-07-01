@@ -1,4 +1,4 @@
-import { buildApiPath } from "./client";
+import { apiRequest, buildApiPath } from "./client";
 import { API_ENDPOINTS } from "./contracts";
 import { useApiResource } from "./useApiResource";
 
@@ -25,3 +25,11 @@ export const useBackendTrendData = (vesselId, options = {}) =>
 
 export const useBackendPointTable = (vesselId, deviceId, version, options = {}) =>
   useApiResource(buildApiPath(API_ENDPOINTS.pointTable, { vesselId, deviceId, version }), options);
+
+export const acknowledgeBackendAlarm = (vesselId, alarmId) =>
+  apiRequest(buildApiPath(API_ENDPOINTS.acknowledgeAlarm, { vesselId, alarmId }), {
+    method: "POST",
+    body: {
+      acknowledgedAt: new Date().toISOString(),
+    },
+  });

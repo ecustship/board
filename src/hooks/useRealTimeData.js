@@ -1,18 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { buildApiPath } from "../api/client";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { apiRequest, buildApiPath } from "../api/client";
 import { API_ENDPOINTS, DEFAULT_API_CONTEXT } from "../api/contracts";
 import { useApiResource } from "../api/useApiResource";
 
-const DATA_SOURCE = process.env.REACT_APP_DATA_SOURCE || "mock";
-const USE_BACKEND = DATA_SOURCE === "backend";
+const DATA_SOURCE = (process.env.REACT_APP_DATA_SOURCE || "backend").toLowerCase();
+const USE_BACKEND = DATA_SOURCE !== "mock";
 const DEFAULT_VESSEL_ID = process.env.REACT_APP_VESSEL_ID || DEFAULT_API_CONTEXT.vesselId;
-
-const unwrapEngines = (data) => data?.engines || data || initialEngineData;
-const unwrapTrendPoints = (data) =>
-  (data?.points || data || []).map((point) => ({
-    ...point,
-    time: point.time ? new Date(point.time) : new Date(point.timestamp),
-  }));
 
 // 生成随机范围内的数值
 const randomInRange = (min, max, decimals = 1) => {
@@ -149,6 +142,181 @@ const initialAlarmsData = {
   ],
 };
 
+const initialSystemStatus = {
+  systemHealth: 95,
+  cpuLoad: 30,
+  memoryUsage: 45,
+  networkLatency: 12,
+  sensors: {
+    gps: true,
+    gyro: true,
+    radar: true,
+    ais: true,
+    depth: true,
+    speed: true,
+  },
+};
+
+const ALARMS_QUERY = { includeHistory: true };
+const ENGINE_META_KEYS = new Set(["timestamp", "quality", "source"]);
+
+const readValue = (value, fallback) => {
+  if (value && typeof value === "object" && "value" in value) return value.value;
+  return value ?? fallback;
+};
+
+const normalizeVesselData = (data) => {
+  const source = data || {};
+  const position = source.position || {};
+  const wind = source.wind || {};
+  const draft = source.draft || {};
+
+  return {
+    ...initialVesselData,
+    ...source,
+    timestamp: source.timestamp,
+    quality: source.quality,
+    source: source.source,
+    position: {
+      ...initialVesselData.position,
+      ...position,
+      lat: readValue(position.lat, initialVesselData.position.lat),
+      lon: readValue(position.lon, initialVesselData.position.lon),
+    },
+    heading: readValue(source.heading, initialVesselData.heading),
+    pitch: readValue(source.pitch, initialVesselData.pitch),
+    roll: readValue(source.roll, source.draft?.fore ?? 0),
+    cog: readValue(source.cog, initialVesselData.cog),
+    sog: readValue(source.sog, initialVesselData.sog),
+    wind: {
+      ...initialVesselData.wind,
+      ...wind,
+      speed: readValue(wind.speed, initialVesselData.wind.speed),
+      direction: readValue(wind.direction, initialVesselData.wind.direction),
+    },
+    draft: {
+      ...initialVesselData.draft,
+      ...draft,
+      fore: readValue(draft.fore, initialVesselData.draft.fore),
+      aft: readValue(draft.aft, initialVesselData.draft.aft),
+    },
+    fuelConsumption: readValue(source.fuelConsumption, initialVesselData.fuelConsumption),
+    temperature: readValue(source.temperature, initialVesselData.temperature),
+    humidity: readValue(source.humidity, initialVesselData.humidity),
+  };
+};
+
+const normalizeEngine = (engine = {}, fallback = {}) => {
+  const source = engine && typeof engine === "object" ? engine : {};
+  const cylinders = source.cylinders || source.cylinderTemperatures || fallback.cylinders || [];
+  return {
+    ...fallback,
+    ...source,
+    rpm: readValue(source.rpm, fallback.rpm ?? 0),
+    power: readValue(source.power, fallback.power ?? 0),
+    load: readValue(source.load, fallback.load ?? 0),
+    fuelRate: readValue(source.fuelRate, fallback.fuelRate ?? 0),
+    torque: readValue(source.torque, fallback.torque ?? 0),
+    thrust: readValue(source.thrust, fallback.thrust ?? 0),
+    exhaustTemp: readValue(source.exhaustTemp, fallback.exhaustTemp ?? 0),
+    coolantTemp: readValue(source.coolantTemp, fallback.coolantTemp ?? 0),
+    oilPressure: readValue(source.oilPressure, fallback.oilPressure ?? 0),
+    turboSpeed: readValue(source.turboSpeed, fallback.turboSpeed ?? 0),
+    voltage: readValue(source.voltage, fallback.voltage ?? 400),
+    current: readValue(source.current, fallback.current ?? 450),
+    powerFactor: readValue(source.powerFactor, fallback.powerFactor ?? 0.84),
+    cylinders: cylinders.map((temp) => readValue(temp, 0)),
+    status: source.status || fallback.status || "unknown",
+    alerts: source.alerts || fallback.alerts || [],
+  };
+};
+
+const normalizeEngineData = (data) => {
+  const source = data?.engines || data || {};
+  const keys = Array.from(new Set([...Object.keys(initialEngineData), ...Object.keys(source).filter((key) => !ENGINE_META_KEYS.has(key))]));
+  const normalized = keys.reduce((acc, key) => {
+    acc[key] = normalizeEngine(source[key], initialEngineData[key]);
+    return acc;
+  }, {});
+
+  return {
+    ...normalized,
+    __meta: {
+      timestamp: data?.timestamp,
+      quality: data?.quality,
+      source: data?.source,
+    },
+  };
+};
+
+const normalizeNavigationData = (data) => ({
+  ...initialNavigationData,
+  ...(data || {}),
+  route: {
+    ...initialNavigationData.route,
+    ...(data?.route || {}),
+  },
+  ais: data?.ais || initialNavigationData.ais,
+  weather: {
+    ...initialNavigationData.weather,
+    ...(data?.weather || {}),
+    wind: {
+      ...initialNavigationData.weather.wind,
+      ...(data?.weather?.wind || {}),
+    },
+    sea: {
+      ...initialNavigationData.weather.sea,
+      ...(data?.weather?.sea || {}),
+    },
+  },
+});
+
+const normalizeAlarm = (alarm) => ({
+  id: alarm.id || alarm.alarmId || alarm.pointCode || `${alarm.source}-${alarm.time}`,
+  time: alarm.time || alarm.timestamp || alarm.occurredAt || "",
+  source: alarm.source || alarm.deviceName || alarm.deviceGroup || "",
+  pointCode: alarm.pointCode,
+  type: alarm.type || alarm.level || "info",
+  priority: alarm.priority || alarm.severity || "low",
+  message: alarm.message || alarm.displayNameZh || alarm.pointName || alarm.pointCode || "",
+  acknowledged: Boolean(alarm.acknowledged),
+  resolved: Boolean(alarm.resolved),
+  resolvedTime: alarm.resolvedTime || alarm.resolvedAt,
+});
+
+const normalizeAlarmsData = (data) => {
+  const source = data?.alarms || data || {};
+  return {
+    timestamp: source.timestamp || data?.timestamp,
+    active: (source.active || []).map(normalizeAlarm),
+    history: (source.history || []).map(normalizeAlarm),
+  };
+};
+
+const normalizeSystemStatus = (data) => ({
+  ...initialSystemStatus,
+  ...(data || {}),
+  sensors: {
+    ...initialSystemStatus.sensors,
+    ...(data?.sensors || {}),
+  },
+});
+
+const normalizeTrendPoints = (data) =>
+  (data?.points || data || []).map((point) => ({
+    ...point,
+    time: point.time ? new Date(point.time) : new Date(point.timestamp),
+  }));
+
+const useBackendResource = (endpoint, intervalMs, initialData, transform, options = {}) =>
+  useApiResource(buildApiPath(endpoint, { vesselId: DEFAULT_VESSEL_ID }), {
+    enabled: USE_BACKEND,
+    intervalMs,
+    initialData,
+    transform,
+    ...options,
+  });
+
 // 添加平滑滤波处理
 const applySmoothing = (currentValue, newValue, filterCoefficient) => {
   if (filterCoefficient === 0) return newValue;
@@ -157,11 +325,19 @@ const applySmoothing = (currentValue, newValue, filterCoefficient) => {
 
 // 自定义钩子：实时船舶数据
 export const useVesselData = (updateInterval = 1000, config = {}) => {
-  const { smoothingFilter = 0.3, rpmHighAlertLimit = 750, lubeOilPressureLowLimit = 2.5 } = config;
+  const { smoothingFilter = 0.3 } = config;
   const [data, setData] = useState(initialVesselData);
   const prevDataRef = useRef(initialVesselData);
+  const backendResource = useBackendResource(
+    API_ENDPOINTS.vessel,
+    updateInterval,
+    initialVesselData,
+    normalizeVesselData
+  );
 
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     const interval = setInterval(() => {
       setData((prev) => {
         const newData = {
@@ -203,18 +379,7 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, smoothingFilter]);
 
-  return data;
-};
-
-const useBackendOrMock = (path, intervalMs, mockValue, transform = (data) => data) => {
-  const resource = useApiResource(path, {
-    enabled: USE_BACKEND,
-    intervalMs,
-    initialData: mockValue,
-    transform,
-  });
-
-  return USE_BACKEND ? resource.data || mockValue : mockValue;
+  return USE_BACKEND ? backendResource.data || initialVesselData : data;
 };
 
 // 自定义钩子：实时引擎数据
@@ -222,9 +387,17 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
   const { rpmHighAlertLimit = 750, lubeOilPressureLowLimit = 2.5, faultInjectionEnabled = false } = config;
   const [engines, setEngines] = useState(initialEngineData);
   const faultIntervalRef = useRef(null);
+  const backendResource = useBackendResource(
+    API_ENDPOINTS.engines,
+    updateInterval,
+    initialEngineData,
+    normalizeEngineData
+  );
 
   // 故障注入效果
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     if (faultInjectionEnabled) {
       // 强制生成紧急故障
       faultIntervalRef.current = setInterval(() => {
@@ -260,6 +433,8 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
   }, [faultInjectionEnabled]);
 
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     const interval = setInterval(() => {
       setEngines((prev) => {
         const updated = { ...prev };
@@ -307,14 +482,22 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, lubeOilPressureLowLimit, rpmHighAlertLimit]);
 
-  return engines;
+  return USE_BACKEND ? backendResource.data || initialEngineData : engines;
 };
 
 // 自定义钩子：实时导航数据
 export const useNavigationData = (updateInterval = 3000) => {
   const [data, setData] = useState(initialNavigationData);
+  const backendResource = useBackendResource(
+    API_ENDPOINTS.navigation,
+    updateInterval,
+    initialNavigationData,
+    normalizeNavigationData
+  );
 
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     const interval = setInterval(() => {
       setData((prev) => ({
         ...prev,
@@ -348,17 +531,20 @@ export const useNavigationData = (updateInterval = 3000) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return data;
+  return USE_BACKEND ? backendResource.data || initialNavigationData : data;
 };
 
 // 自定义钩子：实时警报数据
 export const useAlarmsData = (updateInterval = 5000, language = "en") => {
   const [alarms, setAlarms] = useState(initialAlarmsData);
+  const [acknowledgedIds, setAcknowledgedIds] = useState(() => new Set());
   const alarmIdRef = useRef(200);
-
-  const pickLocalized = useCallback(
-    (en, zh) => (language === "zh" ? zh : en),
-    [language]
+  const backendResource = useBackendResource(
+    API_ENDPOINTS.alarms,
+    updateInterval,
+    initialAlarmsData,
+    normalizeAlarmsData,
+    { query: ALARMS_QUERY }
   );
 
   const localizeSource = useCallback(
@@ -409,13 +595,22 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
     [localizeSource, localizeMessage]
   );
 
+  const alarmSource = USE_BACKEND ? backendResource.data || initialAlarmsData : alarms;
+
   // expose localized alarms to consumers
   const localizedAlarms = {
-    active: alarms.active.map(localizeAlarm),
-    history: alarms.history.map(localizeAlarm),
+    active: (alarmSource.active || []).map((alarm) =>
+      localizeAlarm({
+        ...alarm,
+        acknowledged: alarm.acknowledged || acknowledgedIds.has(alarm.id),
+      })
+    ),
+    history: (alarmSource.history || []).map(localizeAlarm),
   };
 
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     const interval = setInterval(() => {
       setAlarms((prev) => {
         const newAlarms = { ...prev };
@@ -456,7 +651,26 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
     return () => clearInterval(interval);
   }, [updateInterval, language]);
 
-  const acknowledgeAlarm = useCallback((id) => {
+  const acknowledgeAlarm = useCallback(async (id) => {
+    if (USE_BACKEND) {
+      setAcknowledgedIds((prev) => new Set(prev).add(id));
+      try {
+        await apiRequest(buildApiPath(API_ENDPOINTS.acknowledgeAlarm, { vesselId: DEFAULT_VESSEL_ID, alarmId: id }), {
+          method: "POST",
+          body: {
+            acknowledgedAt: new Date().toISOString(),
+          },
+        });
+      } catch (error) {
+        setAcknowledgedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+      return;
+    }
+
     setAlarms((prev) => ({
       ...prev,
       active: prev.active.map((alarm) =>
@@ -470,22 +684,17 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
 
 // 自定义钩子：系统状态
 export const useSystemStatus = (updateInterval = 1500) => {
-  const [status, setStatus] = useState({
-    systemHealth: 95,
-    cpuLoad: 30,
-    memoryUsage: 45,
-    networkLatency: 12,
-    sensors: {
-      gps: true,
-      gyro: true,
-      radar: true,
-      ais: true,
-      depth: true,
-      speed: true,
-    },
-  });
+  const [status, setStatus] = useState(initialSystemStatus);
+  const backendResource = useBackendResource(
+    API_ENDPOINTS.systemStatus,
+    updateInterval,
+    initialSystemStatus,
+    normalizeSystemStatus
+  );
 
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     const interval = setInterval(() => {
       setStatus((prev) => ({
         ...prev,
@@ -499,7 +708,7 @@ export const useSystemStatus = (updateInterval = 1500) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return status;
+  return USE_BACKEND ? backendResource.data || initialSystemStatus : status;
 };
 
 // 生成图表数据
@@ -523,8 +732,24 @@ export const useTrendData = (hours = 24, points = 100) => {
       windSpeed: randomInRange(5, 28),
     }));
   });
+  const trendQuery = useMemo(
+    () => ({
+      hours,
+      points,
+    }),
+    [hours, points]
+  );
+  const backendResource = useBackendResource(
+    API_ENDPOINTS.trend,
+    10000,
+    data,
+    normalizeTrendPoints,
+    { query: trendQuery }
+  );
 
   useEffect(() => {
+    if (USE_BACKEND) return undefined;
+
     const interval = setInterval(() => {
       setData((prev) => {
         const newData = [...prev.slice(1)];
@@ -551,10 +776,10 @@ export const useTrendData = (hours = 24, points = 100) => {
     return () => clearInterval(interval);
   }, []);
 
-  return data;
+  return USE_BACKEND ? backendResource.data || data : data;
 };
 
-export default {
+const realTimeDataHooks = {
   useVesselData,
   useEngineData,
   useNavigationData,
@@ -562,3 +787,5 @@ export default {
   useSystemStatus,
   useTrendData,
 };
+
+export default realTimeDataHooks;

@@ -70,7 +70,7 @@ const EngineSystems = () => {
 
   // Dynamic bottom metrics based on engine data
   const activeEngineData = engineData[activeEngine] || {};
-  const latestDataTimestamp = new Date();
+  const latestDataTimestamp = new Date(activeEngineData.timestamp || engineData.__meta?.timestamp || Date.now());
   const nextRefreshAt = new Date(latestDataTimestamp.getTime() + 2000);
   const voltage = activeEngineData.voltage || 400;
   const current = activeEngineData.current || 450;

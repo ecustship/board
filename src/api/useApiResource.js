@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "./client";
+
+const defaultTransform = (data) => data;
 
 export const useApiResource = (path, options = {}) => {
   const {
@@ -7,54 +9,54 @@ export const useApiResource = (path, options = {}) => {
     intervalMs = 0,
     initialData = null,
     query,
-    transform = (data) => data,
+    transform = defaultTransform,
   } = options;
   const [data, setData] = useState(initialData);
   const [status, setStatus] = useState(enabled ? "loading" : "idle");
   const [error, setError] = useState(null);
   const abortRef = useRef(null);
+  const queryKey = JSON.stringify(query || {});
+  const stableQuery = useMemo(() => JSON.parse(queryKey), [queryKey]);
+
+  const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setStatus((prev) => (prev === "success" ? "refreshing" : "loading"));
+
+    try {
+      const envelope = await apiRequest(path, { query: stableQuery, signal: controller.signal });
+      setData(transform(envelope.data, envelope));
+      setError(null);
+      setStatus("success");
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      setError(err);
+      setStatus("error");
+    }
+  }, [path, stableQuery, transform]);
 
   useEffect(() => {
     if (!enabled || !path) {
+      abortRef.current?.abort();
       setStatus("idle");
       return undefined;
     }
-
-    let mounted = true;
-
-    const load = async () => {
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setStatus((prev) => (prev === "success" ? "refreshing" : "loading"));
-
-      try {
-        const envelope = await apiRequest(path, { query, signal: controller.signal });
-        if (!mounted) return;
-        setData(transform(envelope.data, envelope));
-        setError(null);
-        setStatus("success");
-      } catch (err) {
-        if (!mounted || err.name === "AbortError") return;
-        setError(err);
-        setStatus("error");
-      }
-    };
 
     load();
     const timer = intervalMs > 0 ? setInterval(load, intervalMs) : null;
 
     return () => {
-      mounted = false;
       abortRef.current?.abort();
       if (timer) clearInterval(timer);
     };
-  }, [enabled, path, intervalMs, query, transform]);
+  }, [enabled, path, intervalMs, load]);
 
   return {
     data,
     status,
     error,
+    reload: load,
     loading: status === "loading",
     refreshing: status === "refreshing",
     online: status === "success" || status === "refreshing",

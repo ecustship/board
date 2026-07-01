@@ -61,15 +61,50 @@ const routeTrack = [
   [1.29, 103.85],
 ];
 
-function FitBoundsOnMount({ positions }) {
+const vesselPositions = vessels.map((v) => [v.lat, v.lon]);
+const transparentTile =
+  "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+const tileLayerOptions = {
+  detectRetina: false,
+  updateWhenIdle: false,
+  updateWhenZooming: false,
+  keepBuffer: 6,
+  crossOrigin: true,
+  errorTileUrl: transparentTile,
+};
+
+function MapViewportController({ positions }) {
   const map = useMap();
   useEffect(() => {
+    const refreshMap = () => {
+      map.invalidateSize({ animate: false });
+      map.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer) {
+          layer.redraw();
+        }
+      });
+    };
+
     if (positions.length > 0) {
       const bounds = L.latLngBounds(positions.map((p) => L.latLng(p[0], p[1])));
-      map.fitBounds(bounds, { padding: [60, 60] });
-      setTimeout(() => map.invalidateSize({ animate: false }), 100);
+      map.fitBounds(bounds, {
+        paddingTopLeft: [320, 120],
+        paddingBottomRight: [320, 190],
+        maxZoom: 9,
+        animate: false,
+      });
     }
-  }, []);
+
+    const timers = [0, 120, 350, 800, 1400].map((delay) =>
+      window.setTimeout(refreshMap, delay)
+    );
+    window.addEventListener("resize", refreshMap);
+
+    return () => {
+      timers.forEach(window.clearTimeout);
+      window.removeEventListener("resize", refreshMap);
+    };
+  }, [map, positions]);
   return null;
 }
 
@@ -133,15 +168,12 @@ const NauticalCharts = () => {
   };
 
   return (
-    <main className="flex-1 relative overflow-hidden">
+    <main className="flex-1 min-h-0 relative overflow-hidden bg-[#c7e5eb]">
       {/* Leaflet Map Layer */}
       <div
         style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          position: "absolute",
+          inset: 0,
           zIndex: 0,
           pointerEvents: "none",
         }}
@@ -152,7 +184,7 @@ const NauticalCharts = () => {
           style={{
             width: "100%",
             height: "100%",
-            background: "#0a1628",
+            background: "#c7e5eb",
             pointerEvents: "auto",
           }}
           worldCopyJump={true}
@@ -162,12 +194,23 @@ const NauticalCharts = () => {
           preferCanvas={true}
         >
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            subdomains="abcd"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
+            attribution='Tiles &copy; Esri, GEBCO, NOAA, Garmin, HERE, and other contributors'
+            maxZoom={13}
+            zIndex={1}
+            {...tileLayerOptions}
           />
 
-          <FitBoundsOnMount positions={vessels.map((v) => [v.lat, v.lon])} />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}"
+            attribution=""
+            maxZoom={13}
+            opacity={0.92}
+            zIndex={2}
+            {...tileLayerOptions}
+          />
+
+          <MapViewportController positions={vesselPositions} />
 
           <Polyline
             positions={routeTrack}
@@ -566,15 +609,16 @@ const NauticalCharts = () => {
       <style>{`
         .leaflet-container {
           font-family: inherit;
+          background: #c7e5eb;
         }
         .leaflet-tile-pane {
-          background: #0a1628;
+          background: transparent;
         }
         .leaflet-tile-pane img {
-          background: #0a1628;
+          background: transparent;
         }
         img.leaflet-tile {
-          background: #0a1628 !important;
+          background: transparent !important;
         }
         .leaflet-popup.twin-popup .leaflet-popup-content-wrapper {
           background: #111c24;

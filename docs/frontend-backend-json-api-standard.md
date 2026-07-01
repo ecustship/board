@@ -4,6 +4,8 @@
 日期：2026-06-30  
 适用项目：marine-dashboard
 
+配套参数映射清单：`docs/page-parameter-master-table-mapping.md`
+
 ## 1. 总原则
 
 前端页面不得再直接依赖本地写死数据作为正式数据源。所有业务数据必须由后端接口返回，前端只负责：
@@ -21,6 +23,8 @@
 
 ```text
 REACT_APP_API_BASE_URL=/api/v1
+REACT_APP_DATA_SOURCE=backend
+REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
 如果前后端同域部署，建议后端或网关暴露 `/api/v1`。如果分离部署，可设置为完整地址，例如：
@@ -28,6 +32,14 @@ REACT_APP_API_BASE_URL=/api/v1
 ```text
 REACT_APP_API_BASE_URL=http://127.0.0.1:8080/api/v1
 ```
+
+`REACT_APP_DATA_SOURCE=backend` 是正式联调和生产默认值。只有本地离线演示时允许显式设置：
+
+```text
+REACT_APP_DATA_SOURCE=mock
+```
+
+前端不得在页面组件里直接写业务 mock。开发兜底数据只能留在 `src/hooks/useRealTimeData.js` 这类数据适配层，并且正式环境必须关闭。
 
 ## 3. 统一响应包
 
@@ -243,10 +255,30 @@ GET /api/v1/vessels/{vesselId}/alarms?includeHistory=true
 }
 ```
 
+确认报警必须走后端接口，前端不能只改本地状态：
+
+```http
+POST /api/v1/vessels/{vesselId}/alarms/{alarmId}/acknowledge
+```
+
+请求体：
+
+```json
+{
+  "acknowledgedAt": "2026-06-30T10:15:03+08:00"
+}
+```
+
 ## 10. 趋势数据
 
 ```http
 GET /api/v1/vessels/{vesselId}/trend?start=2026-01-01T00:00:00+08:00&end=2026-03-31T23:59:59+08:00&metrics=power,rpm,exhaustTemp
+```
+
+前端当前也会支持以下简化查询参数，供后端在默认历史窗口里快速返回数据：
+
+```http
+GET /api/v1/vessels/{vesselId}/trend?hours=8760&points=730
 ```
 
 ```json
@@ -382,6 +414,18 @@ import { useBackendEngineData } from "./api/dashboardApi";
 禁止在页面组件中直接拼接接口 URL。  
 禁止在页面组件中直接写正式业务 mock。  
 如果接口未就绪，只能在 hook 层使用开发兜底数据，并在 UI 上标识 `offline/mock`。
+
+当前页面数据入口固定如下：
+
+| 页面/模块 | 前端 hook | 后端接口 |
+| --- | --- | --- |
+| Main Engine | `useEngineData`、`useAlarmsData` | `/engines`、`/alarms` |
+| Engine Systems | `useEngineData` | `/engines` |
+| Navigation | `useVesselData`、`useEngineData`、`useSystemStatus` | `/realtime`、`/engines`、`/system-status` |
+| Alarm / Global Alarm | `useAlarmsData` | `/alarms`、`/alarms/{alarmId}/acknowledge` |
+| Trend | `useTrendData` | `/trend` |
+
+正式接入时，页面组件只消费 hook 返回的数据结构，不直接感知 URL、端口、MODBUS 寄存器或协议细节。
 
 ## 15. 联调顺序
 

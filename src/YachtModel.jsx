@@ -3,10 +3,11 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
-const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine.glb';
+const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine-draco.glb';
+const DRACO_DECODER_PATH = '/draco/gltf/';
 
 function EngineModelInner({ faultAlarm }) {
-  const { scene } = useGLTF(MAIN_ENGINE_MODEL_PATH, true);
+  const { scene } = useGLTF(MAIN_ENGINE_MODEL_PATH, DRACO_DECODER_PATH);
   const [ready, setReady] = useState(false);
   const groupRef = useRef();
 
@@ -139,7 +140,7 @@ function EngineModelScene({ faultAlarm, autoRotate = false, autoRotateSpeed = 0.
 
 // 游艇模型组件
 function YachtModelScene() {
-  const { scene } = useGLTF('/costa_voyager/scene.gltf', true);
+  const { scene } = useGLTF('/costa_voyager/scene.gltf');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -265,6 +266,6 @@ export function TrendEngineModel() {
   );
 }
 
-// 预加载模型
-useGLTF.preload(MAIN_ENGINE_MODEL_PATH, true);
-useGLTF.preload('/costa_voyager/scene.gltf', true);
+// Keep the large engine model demand-loaded; preloading it makes the public site fetch
+// tens of MB before the user opens the main engine page.
+useGLTF.preload('/costa_voyager/scene.gltf');
