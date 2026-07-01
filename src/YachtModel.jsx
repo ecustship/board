@@ -3,11 +3,10 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
-const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine-draco.glb';
-const DRACO_DECODER_PATH = '/draco/gltf/';
+const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine.glb';
 
 function EngineModelInner({ faultAlarm }) {
-  const { scene } = useGLTF(MAIN_ENGINE_MODEL_PATH, DRACO_DECODER_PATH);
+  const { scene } = useGLTF(MAIN_ENGINE_MODEL_PATH);
   const [ready, setReady] = useState(false);
   const groupRef = useRef();
 
@@ -266,6 +265,6 @@ export function TrendEngineModel() {
   );
 }
 
-// Keep the large engine model demand-loaded; preloading it makes the public site fetch
-// tens of MB before the user opens the main engine page.
+// Keep the original textured engine model demand-loaded; it is large enough
+// that preloading it would slow pages that do not show the main engine.
 useGLTF.preload('/costa_voyager/scene.gltf');

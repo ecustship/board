@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, AlertCircle, Thermometer, RotateCw, Play } from "lucide-react";
+import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, AlertCircle, Thermometer, RotateCw } from "lucide-react";
 import RealtimeDataConfigModal from "./components/RealtimeDataConfigModal";
 import SystemStatusConfigModal from "./components/SystemStatusConfigModal";
 import { useNavigationConfig } from "./hooks/useNavigationConfig";
@@ -52,49 +52,26 @@ const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
 };
 
 const cctvFeeds = [
-  { id: "cam01", label: "CAM 01", src: "/6028721-hd_1920_1080_25fps.mp4" },
+  { id: "cam01", label: "CAM 01", src: "/4880777-uhd_3840_2160_30fps.mp4" },
   { id: "cam02", label: "CAM 02", src: "/5024852-hd_1920_1080_24fps.mp4" },
   { id: "cam03", label: "CAM 03", src: "/3918100-hd_1920_1080_30fps.mp4" },
-  { id: "cam04", label: "CAM 04", src: "/4880777-uhd_3840_2160_30fps.mp4" },
+  { id: "cam04", label: "CAM 04", src: "/6028721-hd_1920_1080_25fps.mp4" },
 ];
 
-const CctvTile = ({ feed, active, onActivate }) => (
-  <button
-    type="button"
-    onClick={onActivate}
-    className="min-h-0 bg-surface-container-high dark:bg-surface-container-high rounded overflow-hidden relative text-left"
-    aria-label={feed.label}
-  >
-    {active ? (
-      <video
-        className="w-full h-full min-h-[72px] object-cover"
-        src={feed.src}
-        poster="/image/board.jpg"
-        preload="none"
-        autoPlay
-        loop
-        muted
-        playsInline
-      />
-    ) : (
-      <>
-        <img
-          src="/image/board.jpg"
-          alt=""
-          className="h-full min-h-[72px] w-full object-cover opacity-80"
-          loading="lazy"
-        />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
-          <span className="rounded-full bg-black/45 p-2">
-            <Play className="h-4 w-4 fill-current" />
-          </span>
-        </span>
-      </>
-    )}
+const CctvTile = ({ feed }) => (
+  <div className="min-h-0 bg-surface-container-high dark:bg-surface-container-high rounded overflow-hidden relative">
+    <video
+      className="w-full h-full min-h-[72px] object-cover"
+      src={feed.src}
+      autoPlay
+      loop
+      muted
+      playsInline
+    />
     <span className="absolute top-1 left-1 bg-black/50 text-[8px] text-white px-1">
       {feed.label}
     </span>
-  </button>
+  </div>
 );
 
 const NavigationPage = () => {
@@ -103,10 +80,6 @@ const NavigationPage = () => {
 
   const [realtimeModalOpen, setRealtimeModalOpen] = useState(false);
   const [systemModalOpen, setSystemModalOpen] = useState(false);
-  const [loadedCctvIds, setLoadedCctvIds] = useState(["cam01"]);
-  const activateCctv = (id) => {
-    setLoadedCctvIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-  };
 
   // 连接到配置参数
   const vesselData = useVesselData(realtimeDataConfig.refreshRate, {
@@ -219,8 +192,6 @@ const NavigationPage = () => {
               <CctvTile
                 key={feed.id}
                 feed={feed}
-                active={loadedCctvIds.includes(feed.id)}
-                onActivate={() => activateCctv(feed.id)}
               />
             ))}
           </div>

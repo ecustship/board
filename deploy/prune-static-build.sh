@@ -9,13 +9,13 @@ if [ ! -d "$BUILD_DIR" ]; then
   exit 1
 fi
 
-# These files are kept in public as source/reference assets, but the production
-# app loads the compressed Draco GLB instead. Removing them from build keeps
-# Aliyun upload and static serving lean without touching source files.
-rm -f "$BUILD_DIR/main_engine_model/engine.glb"
+# Keep the original textured GLB because Main Engine renders that version.
+# Remove unreferenced sidecar/source files so the deploy package is still leaner.
 rm -f "$BUILD_DIR/main_engine_model/engine.gltf"
 rm -f "$BUILD_DIR/main_engine_model/engine.bin"
+rm -f "$BUILD_DIR/main_engine_model/engine-draco.glb"
 rm -f "$BUILD_DIR/engine.gltf"
+rm -rf "$BUILD_DIR/draco"
 
 # Historical demo engine assets are not referenced by the current React app.
 rm -rf "$BUILD_DIR/internal_combustion_engine"

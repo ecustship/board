@@ -115,7 +115,7 @@ npm run build
 npm run build:deploy
 ```
 
-`build:deploy` 会先生成生产包，再删除构建产物中未被当前页面引用的旧发动机源模型，保留实际加载的 `main_engine_model/engine-draco.glb` 和 Draco 解码文件，减少上传体积。
+`build:deploy` 会先生成生产包，再删除构建产物中未被当前页面引用的发动机 sidecar/source 文件，保留实际加载的 `main_engine_model/engine.glb` 原贴图模型。
 
 测试：
 
@@ -173,14 +173,13 @@ sudo systemctl reload nginx
 发布后验证：
 
 ```bash
-curl -I http://8.130.14.1/main_engine_model/engine-draco.glb
-curl -I http://8.130.14.1/draco/gltf/draco_decoder.wasm
+curl -I http://8.130.14.1/main_engine_model/engine.glb
 curl -I http://8.130.14.1/6028721-hd_1920_1080_25fps.mp4
 ```
 
 正确结果应满足：
 
-1. `engine-draco.glb` 返回模型文件，不应返回 `text/html`。
+1. `engine.glb` 返回模型文件，不应返回 `text/html`。
 2. 静态资源返回 `Cache-Control: public, max-age=2592000` 或更长缓存。
 3. `index.html` 返回 `no-cache`，方便前端发版后刷新入口文件。
 
@@ -190,8 +189,8 @@ curl -I http://8.130.14.1/6028721-hd_1920_1080_25fps.mp4
 2. `index.html` 不要长期缓存，方便发版后刷新入口。
 3. 前端路由需要 `try_files $uri /index.html`。
 4. 开启 `gzip`，JS/CSS/JSON/SVG/GLTF 文本资源会更快。
-5. 主机模型已经改为 Draco 压缩模型，`engine.glb` 约 60MB，`engine-draco.glb` 约 2.9MB，线上必须发布新文件。
-6. 视频在前端已改为点击后加载，仍建议后续把 4K/1080p 源视频转成更小的 720p/WebM/MP4 版本。
+5. 主机模型使用原贴图 `engine.glb`，约 60MB，必须依赖 Nginx 静态缓存改善二次加载速度。
+6. CCTV 视频已恢复为直接播放原视频，公网首屏会重新请求多路 MP4，建议后续准备低码率副本再做性能优化。
 
 ## 联调注意事项
 
