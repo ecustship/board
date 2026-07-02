@@ -1,12 +1,24 @@
-import React, { useEffect, Suspense, useState, useRef } from 'react';
+import React, { useEffect, Suspense, useMemo, useState, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
 const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine.glb';
 
+const cloneModelScene = (sourceScene) => {
+  const clonedScene = sourceScene.clone(true);
+  clonedScene.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    child.material = Array.isArray(child.material)
+      ? child.material.map((material) => material.clone())
+      : child.material.clone();
+  });
+  return clonedScene;
+};
+
 function EngineModelInner({ faultAlarm }) {
-  const { scene } = useGLTF(MAIN_ENGINE_MODEL_PATH);
+  const { scene: sourceScene } = useGLTF(MAIN_ENGINE_MODEL_PATH);
+  const scene = useMemo(() => cloneModelScene(sourceScene), [sourceScene]);
   const [ready, setReady] = useState(false);
   const groupRef = useRef();
 
@@ -15,6 +27,7 @@ function EngineModelInner({ faultAlarm }) {
 
     scene.rotation.set(0, 0, 0);
     scene.position.set(0, 0, 0);
+    scene.scale.set(1, 1, 1);
 
     // Ensure transforms are up-to-date before measuring
     scene.updateMatrixWorld(true);
@@ -139,7 +152,8 @@ function EngineModelScene({ faultAlarm, autoRotate = false, autoRotateSpeed = 0.
 
 // 游艇模型组件
 function YachtModelScene() {
-  const { scene } = useGLTF('/costa_voyager/scene.gltf');
+  const { scene: sourceScene } = useGLTF('/costa_voyager/scene.gltf');
+  const scene = useMemo(() => cloneModelScene(sourceScene), [sourceScene]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
