@@ -9,13 +9,16 @@ if [ ! -d "$BUILD_DIR" ]; then
   exit 1
 fi
 
-# Keep the original textured GLB because Main Engine renders that version.
-# Remove unreferenced sidecar/source files so the deploy package is still leaner.
+# Main Engine renders the optimized textured GLB. Keep its Draco decoder,
+# and remove original/source variants from the deploy package.
+rm -f "$BUILD_DIR/main_engine_model/engine.glb"
 rm -f "$BUILD_DIR/main_engine_model/engine.gltf"
 rm -f "$BUILD_DIR/main_engine_model/engine.bin"
+rm -f "$BUILD_DIR/main_engine_model/engine-draco-textured.glb"
 rm -f "$BUILD_DIR/main_engine_model/engine-draco.glb"
+rm -f "$BUILD_DIR/main_engine_model/engine-meshopt.glb"
+rm -f "$BUILD_DIR/main_engine_model/engine-optimized-small.glb"
 rm -f "$BUILD_DIR/engine.gltf"
-rm -rf "$BUILD_DIR/draco"
 
 # Historical demo engine assets are not referenced by the current React app.
 rm -rf "$BUILD_DIR/internal_combustion_engine"

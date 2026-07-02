@@ -3,7 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
-const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine.glb';
+const MAIN_ENGINE_MODEL_PATH = '/main_engine_model/engine-optimized.glb';
+const DRACO_DECODER_PATH = '/draco/gltf/';
 
 const cloneModelScene = (sourceScene) => {
   const clonedScene = sourceScene.clone(true);
@@ -17,7 +18,7 @@ const cloneModelScene = (sourceScene) => {
 };
 
 function EngineModelInner({ faultAlarm, targetSize = 2.8 }) {
-  const { scene: sourceScene } = useGLTF(MAIN_ENGINE_MODEL_PATH);
+  const { scene: sourceScene } = useGLTF(MAIN_ENGINE_MODEL_PATH, DRACO_DECODER_PATH);
   const scene = useMemo(() => cloneModelScene(sourceScene), [sourceScene]);
   const [ready, setReady] = useState(false);
   const groupRef = useRef();
