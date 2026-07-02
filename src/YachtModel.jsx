@@ -16,7 +16,7 @@ const cloneModelScene = (sourceScene) => {
   return clonedScene;
 };
 
-function EngineModelInner({ faultAlarm }) {
+function EngineModelInner({ faultAlarm, targetSize = 2.8 }) {
   const { scene: sourceScene } = useGLTF(MAIN_ENGINE_MODEL_PATH);
   const scene = useMemo(() => cloneModelScene(sourceScene), [sourceScene]);
   const [ready, setReady] = useState(false);
@@ -24,6 +24,7 @@ function EngineModelInner({ faultAlarm }) {
 
   useEffect(() => {
     if (!scene) return;
+    setReady(false);
 
     scene.rotation.set(0, 0, 0);
     scene.position.set(0, 0, 0);
@@ -39,7 +40,6 @@ function EngineModelInner({ faultAlarm }) {
     box.getCenter(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const targetSize = 12.93;
     const scale = targetSize / maxDim;
 
     // Apply scale then re-measure to compute the scaled center precisely
@@ -70,7 +70,7 @@ function EngineModelInner({ faultAlarm }) {
     });
 
     setReady(true);
-  }, [scene]);
+  }, [scene, targetSize]);
 
   useFrame(({ clock }) => {
     if (!groupRef.current) return;
@@ -99,10 +99,15 @@ function EngineModelInner({ faultAlarm }) {
   });
 
   if (!ready) return null;
-  return <group ref={groupRef} scale={1.5}><primitive object={scene} /></group>;
+  return <group ref={groupRef}><primitive object={scene} /></group>;
 }
 
-function CenterLockedControls({ autoRotate = false, autoRotateSpeed = 0.6 }) {
+function CenterLockedControls({
+  autoRotate = false,
+  autoRotateSpeed = 0.6,
+  minDistance = 3.2,
+  maxDistance = 10,
+}) {
   const controlsRef = useRef();
   const { camera } = useThree();
 
@@ -126,15 +131,22 @@ function CenterLockedControls({ autoRotate = false, autoRotateSpeed = 0.6 }) {
       enablePan={false}
       minPolarAngle={0}
       maxPolarAngle={Math.PI}
-      minDistance={2.0}
-      maxDistance={14}
+      minDistance={minDistance}
+      maxDistance={maxDistance}
       autoRotate={autoRotate}
       autoRotateSpeed={autoRotateSpeed}
     />
   );
 }
 
-function EngineModelScene({ faultAlarm, autoRotate = false, autoRotateSpeed = 0.6 }) {
+function EngineModelScene({
+  faultAlarm,
+  autoRotate = false,
+  autoRotateSpeed = 0.6,
+  targetSize = 2.8,
+  minDistance = 3.2,
+  maxDistance = 10,
+}) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -142,10 +154,15 @@ function EngineModelScene({ faultAlarm, autoRotate = false, autoRotateSpeed = 0.
   if (!mounted) return null;
   return (
     <Suspense fallback={<EngineFallback />}>
-      <EngineModelInner faultAlarm={faultAlarm} />
+      <EngineModelInner faultAlarm={faultAlarm} targetSize={targetSize} />
       {/* Avoid HDR fetch errors in CRA builds by using lights only. */}
       <ContactShadows position={[0, -0.05, 0]} opacity={0.4} scale={8} blur={2} far={3} />
-      <CenterLockedControls autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed} />
+      <CenterLockedControls
+        autoRotate={autoRotate}
+        autoRotateSpeed={autoRotateSpeed}
+        minDistance={minDistance}
+        maxDistance={maxDistance}
+      />
     </Suspense>
   );
 }
@@ -232,14 +249,21 @@ export function YachtModel({ rotationY = 0, autoRotate = true, faultAlarm = fals
 export function EngineModel({ autoRotate = true, faultAlarm = false }) {
   return (
     <div className="w-full h-full" style={{ minHeight: '300px' }}>
-      <Canvas camera={{ position: [0, 0.8, 2.25], fov: 32 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
+      <Canvas camera={{ position: [0, 0.55, 4.2], fov: 34 }} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }} shadows>
         <color attach="background" args={['#f0f0f0']} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow shadow-mapSize={[2048, 2048]} />
         <directionalLight position={[-3, 3, -3]} intensity={0.8} />
         <directionalLight position={[0, -2, 2]} intensity={0.4} />
         <spotLight position={[0, 5, 0]} intensity={0.5} angle={0.5} penumbra={0.5} />
-        <EngineModelScene faultAlarm={faultAlarm} autoRotate={autoRotate} autoRotateSpeed={0.5} />
+        <EngineModelScene
+          faultAlarm={faultAlarm}
+          autoRotate={autoRotate}
+          autoRotateSpeed={0.5}
+          targetSize={2.8}
+          minDistance={3.2}
+          maxDistance={9}
+        />
       </Canvas>
     </div>
   );
@@ -256,7 +280,14 @@ export function EngineSystemsModel() {
         <directionalLight position={[-3, 3, -3]} intensity={0.8} />
         <directionalLight position={[0, -2, 2]} intensity={0.4} />
         <spotLight position={[0, 5, 0]} intensity={0.5} angle={0.5} penumbra={0.5} />
-        <EngineModelScene faultAlarm={false} autoRotate autoRotateSpeed={0.8} />
+        <EngineModelScene
+          faultAlarm={false}
+          autoRotate
+          autoRotateSpeed={0.8}
+          targetSize={2.3}
+          minDistance={3.0}
+          maxDistance={9}
+        />
       </Canvas>
     </div>
   );
@@ -273,7 +304,14 @@ export function TrendEngineModel() {
         <directionalLight position={[-3, 3, -3]} intensity={0.8} />
         <directionalLight position={[0, -2, 2]} intensity={0.4} />
         <spotLight position={[0, 5, 0]} intensity={0.5} angle={0.5} penumbra={0.5} />
-        <EngineModelScene faultAlarm={false} autoRotate autoRotateSpeed={0.6} />
+        <EngineModelScene
+          faultAlarm={false}
+          autoRotate
+          autoRotateSpeed={0.6}
+          targetSize={2.2}
+          minDistance={2.8}
+          maxDistance={8}
+        />
       </Canvas>
     </div>
   );
