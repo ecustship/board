@@ -1,6 +1,9 @@
 export const API_VERSION = "v1";
 
 export const API_ENDPOINTS = {
+  login: "/auth/login",
+  logout: "/auth/logout",
+  me: "/auth/me",
   snapshot: "/dashboard/snapshot",
   vessel: "/vessels/{vesselId}/realtime",
   engines: "/vessels/{vesselId}/engines",

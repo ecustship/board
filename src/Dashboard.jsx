@@ -12,7 +12,9 @@ import { LanguageProvider, useLanguage } from "./hooks/useLanguage";
 import { NavigationConfigProvider } from "./hooks/useNavigationConfig";
 import { UnitSystemProvider } from "./hooks/useUnitSystem";
 import { FocusModeProvider, useFocusMode } from "./hooks/useFocusMode";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
 import GlobalAlarmBanner from "./components/GlobalAlarmBanner";
+import LoginPage from "./components/LoginPage";
 
 // Search Modal Component
 const SearchModal = ({ isOpen, onClose }) => {
@@ -258,9 +260,20 @@ const SettingsModal = ({ isOpen, onClose, theme, setTheme }) => {
 };
 
 // Account Modal Component
-const AccountModal = ({ isOpen, onClose }) => {
+const AccountModal = ({ isOpen, onClose, user, onLogout }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
+
+  const displayName = user?.displayName || user?.username || t.userName;
+  const roleText = user?.roles?.join(" / ") || t.userRole;
+  const userId = user?.userId || t.userId;
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((item) => item[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <AnimatePresence>
@@ -281,11 +294,11 @@ const AccountModal = ({ isOpen, onClose }) => {
           {/* Profile Header */}
           <div className="bg-gradient-to-r from-[#4CD7D0] to-[#0058bc] p-6 text-center">
             <div className="w-20 h-20 bg-white rounded-full mx-auto mb-3 flex items-center justify-center shadow-lg">
-              <span className="text-3xl">👨‍✈️</span>
+              <span className="text-2xl font-black text-[#0058bc]">{initials || "AM"}</span>
             </div>
-            <h3 className="text-xl font-bold text-white">{t.userName}</h3>
-            <p className="text-white/80 text-sm">{t.userRole}</p>
-            <p className="text-white/60 text-xs mt-1">{t.userId}</p>
+            <h3 className="text-xl font-bold text-white">{displayName}</h3>
+            <p className="text-white/80 text-sm">{roleText}</p>
+            <p className="text-white/60 text-xs mt-1">{userId}</p>
           </div>
 
           {/* Menu Items */}
@@ -303,7 +316,13 @@ const AccountModal = ({ isOpen, onClose }) => {
               <span className="text-gray-700 dark:text-gray-300 font-medium">Help & Support</span>
             </button>
             <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group">
+            <button
+              onClick={() => {
+                onClose();
+                onLogout();
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group"
+            >
               <span className="material-symbols-outlined text-red-500">logout</span>
               <span className="text-red-500 font-medium">{t.logout}</span>
             </button>
@@ -317,6 +336,7 @@ const AccountModal = ({ isOpen, onClose }) => {
 const InnerDashboard = () => {
   const { t, language } = useLanguage();
   const { focusMode, toggleFocusMode } = useFocusMode();
+  const { user, logout } = useAuth();
   const [theme, setTheme] = useState("system");
 
   useEffect(() => {
@@ -436,7 +456,12 @@ const InnerDashboard = () => {
           theme={theme}
           setTheme={setTheme}
         />
-        <AccountModal isOpen={accountOpen} onClose={() => setAccountOpen(false)} />
+        <AccountModal
+          isOpen={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          user={user}
+          onLogout={logout}
+        />
         <GlobalAlarmBanner />
 
         {/* Main Content */}
@@ -467,17 +492,31 @@ const InnerDashboard = () => {
   );
 };
 
+const AuthenticatedDashboard = () => {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  return (
+    <UnitSystemProvider>
+      <FocusModeProvider>
+        <NavigationConfigProvider>
+          <InnerDashboard />
+        </NavigationConfigProvider>
+      </FocusModeProvider>
+    </UnitSystemProvider>
+  );
+};
+
 const Dashboard = () => {
   const [language, setLanguage] = useState("en");
   return (
     <LanguageProvider language={language} setLanguage={setLanguage}>
-      <UnitSystemProvider>
-        <FocusModeProvider>
-          <NavigationConfigProvider>
-            <InnerDashboard />
-          </NavigationConfigProvider>
-        </FocusModeProvider>
-      </UnitSystemProvider>
+      <AuthProvider>
+        <AuthenticatedDashboard />
+      </AuthProvider>
     </LanguageProvider>
   );
 };

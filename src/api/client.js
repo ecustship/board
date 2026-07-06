@@ -1,4 +1,5 @@
 import { API_VERSION, DEFAULT_API_CONTEXT, normalizeApiEnvelope } from "./contracts";
+import { clearAuthSession, getAuthToken } from "./authSession";
 
 const trimSlashes = (value) => String(value || "").replace(/^\/+|\/+$/g, "");
 const isAbsoluteUrl = (value) => /^https?:\/\//i.test(String(value || ""));
@@ -26,11 +27,12 @@ export const buildApiUrl = (path, query = {}) => {
 };
 
 export const apiRequest = async (path, options = {}) => {
-  const { query, signal, headers, ...fetchOptions } = options;
+  const { query, signal, headers, skipAuth = false, ...fetchOptions } = options;
   const body =
     fetchOptions.body && typeof fetchOptions.body !== "string"
       ? JSON.stringify(fetchOptions.body)
       : fetchOptions.body;
+  const token = skipAuth ? "" : getAuthToken();
   const response = await fetch(buildApiUrl(path, query), {
     ...fetchOptions,
     body,
@@ -38,6 +40,7 @@ export const apiRequest = async (path, options = {}) => {
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
   });
@@ -47,6 +50,9 @@ export const apiRequest = async (path, options = {}) => {
   const envelope = normalizeApiEnvelope(payload);
 
   if (!response.ok || envelope.success === false) {
+    if (response.status === 401) {
+      clearAuthSession("unauthorized");
+    }
     const error = new Error(envelope.message || `Request failed: ${response.status}`);
     error.status = response.status;
     error.payload = envelope;
