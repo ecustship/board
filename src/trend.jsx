@@ -6,19 +6,29 @@ import { useLanguage } from "./hooks/useLanguage";
 import { useUnitSystem } from "./hooks/useUnitSystem";
 
 const metricCatalog = {
-  power: { label: "Electric Power", color: "#0058bc", unitType: "power" },
-  kw: { label: "Kilowatts", color: "#4cd7d0", unit: "kW" },
-  rpm: { label: "RPM", color: "#7c3aed", unit: "RPM" },
-  exhaustTemp: { label: "Exhaust Temp", color: "#dc2626", unitType: "temperature" },
-  pressure: { label: "Pressure", color: "#0f766e", unitType: "pressure" },
-  lubeOilPressure: { label: "Lube Oil Press", color: "#2563eb", unitType: "pressure" },
-  coolantTemp: { label: "Coolant Temp", color: "#0891b2", unitType: "temperature" },
-  lubeOilTemp: { label: "Lube Oil Temp", color: "#9333ea", unitType: "temperature" },
-  fuelPressure: { label: "Fuel Pressure", color: "#ca8a04", unitType: "pressure" },
-  fuelTemp: { label: "Fuel Temp", color: "#f97316", unitType: "temperature" },
-  load: { label: "Engine Load", color: "#16a34a", unit: "%" },
-  vesselSpeed: { label: "Vessel Speed", color: "#14b8a6", unit: "kn" },
-  windSpeed: { label: "Wind Speed", color: "#64748b", unit: "kn" },
+  power: { label: "Electric Power", color: "#0058bc", unitType: "power", apiMetrics: ["power"] },
+  kw: { label: "Kilowatts", color: "#4cd7d0", unit: "kW", apiMetrics: ["power"] },
+  rpm: { label: "RPM", color: "#7c3aed", unit: "RPM", apiMetrics: ["CMMS01_Engine Speed"] },
+  exhaustTemp: {
+    label: "Exhaust Temp",
+    color: "#dc2626",
+    unitType: "temperature",
+    apiMetrics: ["CMMS01_Exhaust Temp. LB", "CMMS01_Exhaust Temp. RB "],
+  },
+  pressure: { label: "Pressure", color: "#0f766e", unitType: "pressure", apiMetrics: ["CMMS01_Lube Oil Press"] },
+  lubeOilPressure: { label: "Lube Oil Press", color: "#2563eb", unitType: "pressure", apiMetrics: ["CMMS01_Lube Oil Press"] },
+  coolantTemp: { label: "Coolant Temp", color: "#0891b2", unitType: "temperature", apiMetrics: ["CMMS01_Coolant Temperature"] },
+  lubeOilTemp: {
+    label: "Lube Oil Temp",
+    color: "#9333ea",
+    unitType: "temperature",
+    apiMetrics: ["CMMS01_Lubricating Oil Temperature"],
+  },
+  fuelPressure: { label: "Fuel Pressure", color: "#ca8a04", unitType: "pressure", apiMetrics: ["CMMS01_Fuel CMMSlivery Pressure"] },
+  fuelTemp: { label: "Fuel Temp", color: "#f97316", unitType: "temperature", apiMetrics: ["CMMS01_Fuel Temperature"] },
+  load: { label: "Engine Load", color: "#16a34a", unit: "%", apiMetrics: ["load"] },
+  vesselSpeed: { label: "Vessel Speed", color: "#14b8a6", unit: "kn", apiMetrics: ["vesselSpeed"] },
+  windSpeed: { label: "Wind Speed", color: "#64748b", unit: "kn", apiMetrics: ["windSpeed"] },
 };
 
 const buildSeries = (data, key, formatUnit) =>
@@ -53,6 +63,17 @@ const pad2 = (value) => String(value).padStart(2, "0");
 
 const toDateInputValue = (date) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const toApiDateTime = (dateValue, endOfDay = false) => {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0);
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absOffset = Math.abs(offsetMinutes);
+  const offset = `${sign}${pad2(Math.floor(absOffset / 60))}:${pad2(absOffset % 60)}`;
+
+  return `${toDateInputValue(date)}T${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}${offset}`;
+};
 
 const rangeOptions = [
   { key: "week", days: 7, zh: "一星期", en: "Week" },
@@ -193,7 +214,6 @@ const TrendChart = ({ title, data, metrics, startDate, endDate, rangeLabel, onOp
 
 const Trend = () => {
   const { language } = useLanguage();
-  const trendData = useTrendData(24 * 365, 730);
   const now = useMemo(() => new Date(), []);
   const defaultStart = useMemo(() => new Date(now.getFullYear(), 0, 1), [now]);
   const defaultEnd = useMemo(() => new Date(now.getFullYear(), 2, 31), [now]);
@@ -205,6 +225,29 @@ const Trend = () => {
   const [screenMetrics, setScreenMetrics] = useState({
     screenA: ["power", "rpm"],
     screenB: ["kw", "exhaustTemp"],
+  });
+
+  const activeScreenKeys = useMemo(
+    () => (screenMode === "single" ? ["screenA"] : ["screenA", "screenB"]),
+    [screenMode]
+  );
+  const requestedMetrics = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          activeScreenKeys
+            .flatMap((screenKey) => screenMetrics[screenKey] || [])
+            .flatMap((metricKey) => metricCatalog[metricKey]?.apiMetrics || [metricKey])
+        )
+      ),
+    [activeScreenKeys, screenMetrics]
+  );
+  const trendData = useTrendData({
+    start: toApiDateTime(startDate),
+    end: toApiDateTime(endDate, true),
+    metrics: requestedMetrics,
+    points: 730,
+    engineCode: "CMMS01",
   });
 
   const toggleMetric = (screen, key) => {

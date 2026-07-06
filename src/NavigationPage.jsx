@@ -95,6 +95,13 @@ const NavigationPage = () => {
   const systemStatus = useSystemStatus(1500);
   const latestDataTimestamp = new Date(vesselData.timestamp || systemStatus.timestamp || Date.now());
   const nextRefreshAt = new Date(latestDataTimestamp.getTime() + realtimeDataConfig.refreshRate);
+  const backendRoutePending = vesselData.backendRouteReady === false || systemStatus.backendRouteReady === false;
+  const backendStateLabel = backendRoutePending
+    ? language === "zh" ? "待接入" : "Pending"
+    : language === "zh" ? "在线" : "Online";
+  const dataSourceLabel = backendRoutePending
+    ? language === "zh" ? "后端接口未接入" : "Backend route pending"
+    : vesselData.source || systemStatus.source || "MODBUS/RS485";
 
   const subsystems = systemStatusConfig.subsystems;
 
@@ -447,7 +454,7 @@ const NavigationPage = () => {
                   </span>
                 </div>
                 <span className="rounded-full bg-[#4CD7D0]/15 px-2 py-0.5 text-[9px] font-black uppercase text-[#4CD7D0]">
-                  {language === "zh" ? "在线" : "Online"}
+                  {backendStateLabel}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -472,7 +479,7 @@ const NavigationPage = () => {
                 <div className="rounded bg-black/10 p-2">
                   <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "数据源" : "Source"}</div>
                   <div className="mt-1 font-mono font-bold text-primary-container">
-                    MODBUS/RS485
+                    {dataSourceLabel}
                   </div>
                 </div>
               </div>

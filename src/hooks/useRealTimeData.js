@@ -15,10 +15,24 @@ import { useApiResource } from "../api/useApiResource";
 
 const DATA_SOURCE = (process.env.REACT_APP_DATA_SOURCE || "backend").toLowerCase();
 const USE_BACKEND = DATA_SOURCE !== "mock";
-const USE_DEMO_FLUCTUATION = (process.env.REACT_APP_DEMO_FLUCTUATION || "true").toLowerCase() !== "false";
+const USE_DEMO_FLUCTUATION = (process.env.REACT_APP_DEMO_FLUCTUATION || "false").toLowerCase() === "true";
 const USE_BACKEND_API = USE_BACKEND && !USE_DEMO_FLUCTUATION;
 const USE_LOCAL_DEMO_DATA = !USE_BACKEND_API;
 const DEFAULT_VESSEL_ID = process.env.REACT_APP_VESSEL_ID || DEFAULT_API_CONTEXT.vesselId;
+const BACKEND_READY_ENDPOINTS = new Set([
+  API_ENDPOINTS.engines,
+  API_ENDPOINTS.alarms,
+  API_ENDPOINTS.acknowledgeAlarm,
+  API_ENDPOINTS.trend,
+]);
+const pendingBackendRoute = (data, endpoint) => ({
+  ...data,
+  timestamp: "",
+  quality: "UNWIRED",
+  source: "PENDING_BACKEND_ROUTE",
+  backendRoute: endpoint,
+  backendRouteReady: false,
+});
 
 // 生成随机范围内的数值
 const randomInRange = (min, max, decimals = 1) => {
@@ -794,14 +808,18 @@ const normalizeTrendPoint = (point) => {
 const normalizeTrendPoints = (data) =>
   (data?.points || data || []).map(normalizeTrendPoint);
 
-const useBackendResource = (endpoint, intervalMs, initialData, transform, options = {}) =>
-  useApiResource(buildApiPath(endpoint, { vesselId: DEFAULT_VESSEL_ID }), {
-    enabled: USE_BACKEND_API,
+const useBackendResource = (endpoint, intervalMs, initialData, transform, options = {}) => {
+  const { enabled = true, ...resourceOptions } = options;
+  const endpointReady = BACKEND_READY_ENDPOINTS.has(endpoint);
+
+  return useApiResource(endpointReady ? buildApiPath(endpoint, { vesselId: DEFAULT_VESSEL_ID }) : "", {
+    enabled: USE_BACKEND_API && endpointReady && enabled,
     intervalMs,
     initialData,
     transform,
-    ...options,
+    ...resourceOptions,
   });
+};
 
 // 添加平滑滤波处理
 const applySmoothing = (currentValue, newValue, filterCoefficient) => {
@@ -865,7 +883,7 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, smoothingFilter]);
 
-  return USE_BACKEND_API ? backendResource.data || initialVesselData : data;
+  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(initialVesselData, API_ENDPOINTS.vessel) : data;
 };
 
 // 自定义钩子：实时引擎数据
@@ -1039,7 +1057,7 @@ export const useNavigationData = (updateInterval = 3000) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return USE_BACKEND_API ? backendResource.data || initialNavigationData : data;
+  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(initialNavigationData, API_ENDPOINTS.navigation) : data;
 };
 
 // 自定义钩子：实时警报数据
@@ -1216,11 +1234,24 @@ export const useSystemStatus = (updateInterval = 1500) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return USE_BACKEND_API ? backendResource.data || initialSystemStatus : status;
+  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(initialSystemStatus, API_ENDPOINTS.systemStatus) : status;
 };
 
 // 生成图表数据
-export const useTrendData = (hours = 24, points = 100) => {
+export const useTrendData = (queryOrHours = 24, fallbackPoints = 100) => {
+  const queryOptions =
+    queryOrHours && typeof queryOrHours === "object"
+      ? queryOrHours
+      : { hours: queryOrHours, points: fallbackPoints };
+  const {
+    hours = 24,
+    points = fallbackPoints,
+    start,
+    end,
+    metrics = [],
+    engineCode = "CMMS01",
+  } = queryOptions;
+
   const [data, setData] = useState(() => {
     const now = Date.now();
     const start = now - hours * 3600000;
@@ -1241,11 +1272,28 @@ export const useTrendData = (hours = 24, points = 100) => {
     }));
   });
   const trendQuery = useMemo(
-    () => ({
-      hours,
-      points,
-    }),
-    [hours, points]
+    () => {
+      const query = {
+        engineCode,
+        points,
+      };
+
+      if (start && end) {
+        query.start = start;
+        query.end = end;
+      } else {
+        query.hours = hours;
+      }
+
+      if (Array.isArray(metrics) && metrics.length) {
+        query.metrics = metrics.join(",");
+      } else if (typeof metrics === "string" && metrics) {
+        query.metrics = metrics;
+      }
+
+      return query;
+    },
+    [engineCode, end, hours, metrics, points, start]
   );
   const backendResource = useBackendResource(
     API_ENDPOINTS.trend,

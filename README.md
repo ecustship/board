@@ -9,7 +9,7 @@
 ```bash
 REACT_APP_API_BASE_URL=/api/v1
 REACT_APP_DATA_SOURCE=backend
-REACT_APP_DEMO_FLUCTUATION=true
+REACT_APP_DEMO_FLUCTUATION=false
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -17,7 +17,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 | --- | --- | --- |
 | `REACT_APP_API_BASE_URL` | `/api/v1` | 后端 API 基础地址。同域部署时使用 `/api/v1`；前后端分离部署时填写完整后端地址。 |
 | `REACT_APP_DATA_SOURCE` | `backend` | 数据源模式。正式联调和生产环境使用 `backend`；离线演示才使用 `mock`。 |
-| `REACT_APP_DEMO_FLUCTUATION` | `true` | 演示波动开关。`true` 时页面使用本地虚拟实时波动；正式后端联调时改为 `false`。 |
+| `REACT_APP_DEMO_FLUCTUATION` | `false` | 演示波动开关。正式后端联调和生产环境使用 `false`；离线演示才使用 `true`。 |
 | `REACT_APP_VESSEL_ID` | `MHM-TierIII-Demo` | 当前船舶 ID，前端会用它拼接 `/vessels/{vesselId}/...` 接口。 |
 
 同域部署示例：
@@ -25,7 +25,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```bash
 REACT_APP_API_BASE_URL=/api/v1
 REACT_APP_DATA_SOURCE=backend
-REACT_APP_DEMO_FLUCTUATION=true
+REACT_APP_DEMO_FLUCTUATION=false
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -72,16 +72,22 @@ REACT_APP_DEMO_FLUCTUATION=true
 
 ## 主要接口
 
-当前前端会使用以下后端接口：
+当前前端已按后端现有公开页面路由启用以下接口：
 
 ```http
-GET  /api/v1/vessels/{vesselId}/realtime
 GET  /api/v1/vessels/{vesselId}/engines
-GET  /api/v1/vessels/{vesselId}/navigation
 GET  /api/v1/vessels/{vesselId}/alarms?includeHistory=true
 POST /api/v1/vessels/{vesselId}/alarms/{alarmId}/acknowledge
-GET  /api/v1/vessels/{vesselId}/system-status
-GET  /api/v1/vessels/{vesselId}/trend
+GET  /api/v1/vessels/{vesselId}/trend?start=...&end=...&metrics=...&points=...
+```
+
+以下页面接口后端当前尚未实现，前端不会主动请求，页面会显示未接入状态：
+
+```http
+GET /api/v1/dashboard/snapshot
+GET /api/v1/vessels/{vesselId}/realtime
+GET /api/v1/vessels/{vesselId}/navigation
+GET /api/v1/vessels/{vesselId}/system-status
 ```
 
 配置页点表接口：
