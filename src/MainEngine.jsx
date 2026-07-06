@@ -13,9 +13,10 @@ const MainEngine = () => {
   const engines = useEngineData(2000);
   const { alarms } = useAlarmsData(5000, language);
   const engine = engines[activeEngine];
-  const oilTemp = (engine?.coolantTemp || 75) + 8;
+  const fuelPressure = engine?.fuelPressure ?? engine?.fuelDeliveryPressure ?? 7.6;
+  const oilTemp = engine?.lubeOilTemp ?? engine?.lubricatingOilTemperature ?? (engine?.coolantTemp || 75) + 8;
   const engineParameterList = [
-    { label: language === "zh" ? "燃油压力" : "Fuel Pressure", value: formatUnit("pressure", 7.6, 1).text },
+    { label: language === "zh" ? "燃油压力" : "Fuel Pressure", value: formatUnit("pressure", fuelPressure, 1).text },
     { label: language === "zh" ? "滑油温度" : "Lube Oil Temp", value: formatUnit("temperature", oilTemp, 1).text },
     { label: language === "zh" ? "冷却水温度" : "Cooling Water Temp", value: formatUnit("temperature", engine?.coolantTemp || 0, 1).text },
     { label: language === "zh" ? "排气温度" : "Exhaust Temp", value: formatUnit("temperature", engine?.exhaustTemp || 0, 1).text },

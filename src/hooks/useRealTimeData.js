@@ -1,10 +1,23 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { apiRequest, buildApiPath } from "../api/client";
 import { API_ENDPOINTS, DEFAULT_API_CONTEXT } from "../api/contracts";
+import {
+  buildHistoricalRawFields,
+  ENGINE_ID_TO_HISTORICAL_PREFIX,
+  getFirstHistoricalFieldValue,
+  getHistoricalFieldValue,
+  hasHistoricalEngineFields,
+  HISTORICAL_CYLINDER_SUFFIXES,
+  HISTORICAL_ENGINE_PREFIXES,
+  HISTORICAL_FIELD_SUFFIXES,
+} from "../api/historicalFields";
 import { useApiResource } from "../api/useApiResource";
 
 const DATA_SOURCE = (process.env.REACT_APP_DATA_SOURCE || "backend").toLowerCase();
 const USE_BACKEND = DATA_SOURCE !== "mock";
+const USE_DEMO_FLUCTUATION = (process.env.REACT_APP_DEMO_FLUCTUATION || "true").toLowerCase() !== "false";
+const USE_BACKEND_API = USE_BACKEND && !USE_DEMO_FLUCTUATION;
+const USE_LOCAL_DEMO_DATA = !USE_BACKEND_API;
 const DEFAULT_VESSEL_ID = process.env.REACT_APP_VESSEL_ID || DEFAULT_API_CONTEXT.vesselId;
 
 // 生成随机范围内的数值
@@ -46,7 +59,34 @@ const initialEngineData = {
     thrust: 2850,
     exhaustTemp: 412.5,
     coolantTemp: 78,
+    lubeOilTemp: 85,
     oilPressure: 4.2,
+    coolantPressure: 3.2,
+    seaWaterPressure: 2.8,
+    fuelRailPressure: 7.6,
+    fuelDeliveryPressure: 4.5,
+    intakeManifoldPressureLB: 2.4,
+    intakeManifoldPressureRB: 2.6,
+    intakeManifoldTemperatureLBF: 45,
+    intakeManifoldTemperatureLBR: 47,
+    intakeManifoldTemperatureRBF: 46,
+    intakeManifoldTemperatureRBR: 48,
+    exhaustTempLB: 425,
+    exhaustTempRB: 421,
+    crankcasePressure: 12.1,
+    fuelTemperature: 38,
+    barometricPressure: 1.0,
+    lubeOilFilterDifferentialPressure: 0.52,
+    mainControlPower: 24,
+    backupControlPower: 24,
+    expansionTankLowAlarm: false,
+    lowLubOilShutdownBelow1500: false,
+    lowLubOilShutdownAbove1500: false,
+    highCoolantTemperatureShutdown: false,
+    fuelLeakageAlarm: false,
+    overspeedShutdown: false,
+    localEmergencyStop: false,
+    remoteEmergencyStop: false,
     turboSpeed: 18.2,
     cylinders: [438, 425, 418, 432, 420, 408, 445, 416, 422, 410, 430, 428, 415, 420, 422, 418],
     status: "running",
@@ -61,7 +101,34 @@ const initialEngineData = {
     thrust: 2720,
     exhaustTemp: 405.8,
     coolantTemp: 76,
+    lubeOilTemp: 83,
     oilPressure: 4.0,
+    coolantPressure: 3.1,
+    seaWaterPressure: 2.7,
+    fuelRailPressure: 7.4,
+    fuelDeliveryPressure: 4.4,
+    intakeManifoldPressureLB: 2.3,
+    intakeManifoldPressureRB: 2.5,
+    intakeManifoldTemperatureLBF: 44,
+    intakeManifoldTemperatureLBR: 46,
+    intakeManifoldTemperatureRBF: 45,
+    intakeManifoldTemperatureRBR: 47,
+    exhaustTempLB: 412,
+    exhaustTempRB: 411,
+    crankcasePressure: 11.8,
+    fuelTemperature: 37,
+    barometricPressure: 1.0,
+    lubeOilFilterDifferentialPressure: 0.5,
+    mainControlPower: 24,
+    backupControlPower: 24,
+    expansionTankLowAlarm: false,
+    lowLubOilShutdownBelow1500: false,
+    lowLubOilShutdownAbove1500: false,
+    highCoolantTemperatureShutdown: false,
+    fuelLeakageAlarm: false,
+    overspeedShutdown: false,
+    localEmergencyStop: false,
+    remoteEmergencyStop: false,
     turboSpeed: 17.5,
     cylinders: [420, 412, 405, 418, 415, 400, 430, 408, 415, 405, 422, 418, 408, 415, 418, 412],
     status: "running",
@@ -77,7 +144,35 @@ const initialEngineData = {
     current: 462,
     powerFactor: 0.85,
     exhaustTemp: 385.2,
+    coolantTemp: 74,
+    lubeOilTemp: 81,
     oilPressure: 3.8,
+    coolantPressure: 3.0,
+    seaWaterPressure: 2.6,
+    fuelRailPressure: 7.1,
+    fuelDeliveryPressure: 4.2,
+    intakeManifoldPressureLB: 2.2,
+    intakeManifoldPressureRB: 2.4,
+    intakeManifoldTemperatureLBF: 43,
+    intakeManifoldTemperatureLBR: 45,
+    intakeManifoldTemperatureRBF: 44,
+    intakeManifoldTemperatureRBR: 46,
+    exhaustTempLB: 384,
+    exhaustTempRB: 383,
+    crankcasePressure: 10.8,
+    fuelTemperature: 36,
+    barometricPressure: 1.0,
+    lubeOilFilterDifferentialPressure: 0.47,
+    mainControlPower: 24,
+    backupControlPower: 24,
+    expansionTankLowAlarm: false,
+    lowLubOilShutdownBelow1500: false,
+    lowLubOilShutdownAbove1500: false,
+    highCoolantTemperatureShutdown: false,
+    fuelLeakageAlarm: false,
+    overspeedShutdown: false,
+    localEmergencyStop: false,
+    remoteEmergencyStop: false,
     cylinders: [392, 385, 378, 388, 382, 372, 395, 380, 385, 378, 390, 386, 378, 385, 388, 382],
     status: "running",
     alerts: [],
@@ -92,7 +187,35 @@ const initialEngineData = {
     current: 405,
     powerFactor: 0.84,
     exhaustTemp: 378.5,
+    coolantTemp: 73,
+    lubeOilTemp: 80,
     oilPressure: 3.6,
+    coolantPressure: 2.9,
+    seaWaterPressure: 2.5,
+    fuelRailPressure: 6.9,
+    fuelDeliveryPressure: 4.1,
+    intakeManifoldPressureLB: 2.1,
+    intakeManifoldPressureRB: 2.3,
+    intakeManifoldTemperatureLBF: 42,
+    intakeManifoldTemperatureLBR: 44,
+    intakeManifoldTemperatureRBF: 43,
+    intakeManifoldTemperatureRBR: 45,
+    exhaustTempLB: 377,
+    exhaustTempRB: 376,
+    crankcasePressure: 10.2,
+    fuelTemperature: 35,
+    barometricPressure: 1.0,
+    lubeOilFilterDifferentialPressure: 0.44,
+    mainControlPower: 24,
+    backupControlPower: 24,
+    expansionTankLowAlarm: false,
+    lowLubOilShutdownBelow1500: false,
+    lowLubOilShutdownAbove1500: false,
+    highCoolantTemperatureShutdown: false,
+    fuelLeakageAlarm: false,
+    overspeedShutdown: false,
+    localEmergencyStop: false,
+    remoteEmergencyStop: false,
     cylinders: [380, 372, 365, 375, 370, 360, 382, 368, 372, 365, 378, 374, 365, 372, 375, 370],
     status: "standby",
     alerts: [],
@@ -165,6 +288,54 @@ const readValue = (value, fallback) => {
   return value ?? fallback;
 };
 
+const readObjectValue = (source, keys, fallback) => {
+  if (!source || typeof source !== "object") return fallback;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      return readValue(source[key], fallback);
+    }
+  }
+  return fallback;
+};
+
+const readNumeric = (value, fallback = 0) => {
+  const raw = readValue(value, undefined);
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  const number = Number(raw);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const readBoolean = (value, fallback = false) => {
+  const raw = readValue(value, undefined);
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "number") return raw !== 0;
+  if (typeof raw === "string") {
+    const normalized = raw.trim().toLowerCase();
+    if (["true", "yes", "y", "1", "active", "alarm"].includes(normalized)) return true;
+    if (["false", "no", "n", "0", "inactive", "normal"].includes(normalized)) return false;
+  }
+  return Boolean(raw);
+};
+
+const average = (items) => {
+  const valid = items.map(Number).filter((item) => Number.isFinite(item));
+  if (!valid.length) return 0;
+  return valid.reduce((sum, item) => sum + item, 0) / valid.length;
+};
+
+const readHistoricalValue = (source, prefix, suffix, fallback, aliases = []) => {
+  const exact = getHistoricalFieldValue(source, prefix, suffix);
+  if (exact !== undefined) return readValue(exact, fallback);
+  return readObjectValue(source, aliases, fallback);
+};
+
+const readHistoricalNumber = (source, prefix, suffix, fallback, aliases = []) =>
+  readNumeric(readHistoricalValue(source, prefix, suffix, fallback, aliases), fallback);
+
+const readHistoricalBoolean = (source, prefix, suffix, fallback, aliases = []) =>
+  readBoolean(readHistoricalValue(source, prefix, suffix, fallback, aliases), fallback);
+
 const normalizeVesselData = (data) => {
   const source = data || {};
   const position = source.position || {};
@@ -206,38 +377,309 @@ const normalizeVesselData = (data) => {
   };
 };
 
-const normalizeEngine = (engine = {}, fallback = {}) => {
+const normalizeEngine = (engine = {}, fallback = {}, historicalPrefix = "CMMS01") => {
   const source = engine && typeof engine === "object" ? engine : {};
-  const cylinders = source.cylinders || source.cylinderTemperatures || fallback.cylinders || [];
+  const historicalCylinders = HISTORICAL_CYLINDER_SUFFIXES.map((suffix) => {
+    const exact = getHistoricalFieldValue(source, historicalPrefix, suffix);
+    return exact === undefined ? undefined : readNumeric(exact, undefined);
+  });
+  const fallbackCylinders = source.cylinders || source.cylinderTemperatures || fallback.cylinders || [];
+  const cylinders = historicalCylinders.some((value) => value !== undefined)
+    ? historicalCylinders.map((value, index) => readNumeric(value, readNumeric(fallbackCylinders[index], 0)))
+    : fallbackCylinders.map((temp) => readNumeric(temp, 0));
+  const safeCylinders = cylinders.length ? cylinders : [];
+  const exhaustTempLB = readHistoricalNumber(
+    source,
+    historicalPrefix,
+    HISTORICAL_FIELD_SUFFIXES.exhaustTempLB,
+    readNumeric(source.exhaustTempLB, average(safeCylinders.slice(0, 8))),
+    ["exhaustTempLB"]
+  );
+  const exhaustTempRB = readHistoricalNumber(
+    source,
+    historicalPrefix,
+    HISTORICAL_FIELD_SUFFIXES.exhaustTempRB,
+    readNumeric(source.exhaustTempRB, average(safeCylinders.slice(8, 16))),
+    ["exhaustTempRB"]
+  );
+  const exhaustTemp = readNumeric(
+    readObjectValue(source, ["exhaustTemp", "temperature"], undefined),
+    average([exhaustTempLB, exhaustTempRB]) || average(safeCylinders)
+  );
+  const rpm = readHistoricalNumber(
+    source,
+    historicalPrefix,
+    HISTORICAL_FIELD_SUFFIXES.engineSpeed,
+    fallback.rpm ?? 0,
+    ["rpm", "engineSpeed"]
+  );
+  const status = source.status || (rpm > 0 ? "running" : fallback.status || "standby");
+
   return {
     ...fallback,
     ...source,
-    rpm: readValue(source.rpm, fallback.rpm ?? 0),
+    timestamp: readHistoricalValue(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.sourceTag,
+      source.timestamp || fallback.timestamp
+    ),
+    historicalSource: historicalPrefix,
+    rawFields: {
+      ...(source.rawFields || {}),
+      ...buildHistoricalRawFields(source, historicalPrefix),
+    },
+    rpm,
+    engineSpeed: rpm,
     power: readValue(source.power, fallback.power ?? 0),
     load: readValue(source.load, fallback.load ?? 0),
     fuelRate: readValue(source.fuelRate, fallback.fuelRate ?? 0),
     torque: readValue(source.torque, fallback.torque ?? 0),
     thrust: readValue(source.thrust, fallback.thrust ?? 0),
-    exhaustTemp: readValue(source.exhaustTemp, fallback.exhaustTemp ?? 0),
-    coolantTemp: readValue(source.coolantTemp, fallback.coolantTemp ?? 0),
-    oilPressure: readValue(source.oilPressure, fallback.oilPressure ?? 0),
+    exhaustTemp,
+    coolantTemp: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.coolantTemperature,
+      fallback.coolantTemp ?? 0,
+      ["coolantTemp", "coolantTemperature"]
+    ),
+    lubeOilTemp: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.lubricatingOilTemperature,
+      fallback.lubeOilTemp ?? fallback.lubricatingOilTemperature ?? 0,
+      ["lubeOilTemp", "lubricatingOilTemperature"]
+    ),
+    oilPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.lubeOilPress,
+      fallback.oilPressure ?? 0,
+      ["oilPressure", "lubeOilPress", "lubeOilPressure"]
+    ),
+    lubeOilPress: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.lubeOilPress,
+      fallback.oilPressure ?? 0,
+      ["lubeOilPress", "oilPressure", "lubeOilPressure"]
+    ),
+    coolantPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.coolantPressure,
+      fallback.coolantPressure ?? 0,
+      ["coolantPressure"]
+    ),
+    seaWaterPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.seaWaterPressure,
+      fallback.seaWaterPressure ?? 0,
+      ["seaWaterPressure"]
+    ),
+    expansionTankLowAlarm: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.expansionTankLowAlarm,
+      fallback.expansionTankLowAlarm ?? false,
+      ["expansionTankLowAlarm"]
+    ),
+    fuelRailPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.fuelRailPressure,
+      fallback.fuelRailPressure ?? 0,
+      ["fuelRailPressure"]
+    ),
+    fuelDeliveryPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.fuelDeliveryPressure,
+      fallback.fuelDeliveryPressure ?? fallback.fuelPressure ?? 0,
+      ["fuelDeliveryPressure", "fuelPressure"]
+    ),
+    fuelPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.fuelDeliveryPressure,
+      fallback.fuelPressure ?? fallback.fuelDeliveryPressure ?? 0,
+      ["fuelPressure", "fuelDeliveryPressure"]
+    ),
+    intakeManifoldPressureLB: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.intakeManifoldPressureLB,
+      fallback.intakeManifoldPressureLB ?? 0,
+      ["intakeManifoldPressureLB"]
+    ),
+    intakeManifoldPressureRB: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.intakeManifoldPressureRB,
+      fallback.intakeManifoldPressureRB ?? 0,
+      ["intakeManifoldPressureRB"]
+    ),
+    intakeManifoldTemperatureLBF: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.intakeManifoldTemperatureLBF,
+      fallback.intakeManifoldTemperatureLBF ?? 0,
+      ["intakeManifoldTemperatureLBF"]
+    ),
+    intakeManifoldTemperatureLBR: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.intakeManifoldTemperatureLBR,
+      fallback.intakeManifoldTemperatureLBR ?? 0,
+      ["intakeManifoldTemperatureLBR"]
+    ),
+    intakeManifoldTemperatureRBF: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.intakeManifoldTemperatureRBF,
+      fallback.intakeManifoldTemperatureRBF ?? 0,
+      ["intakeManifoldTemperatureRBF"]
+    ),
+    intakeManifoldTemperatureRBR: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.intakeManifoldTemperatureRBR,
+      fallback.intakeManifoldTemperatureRBR ?? 0,
+      ["intakeManifoldTemperatureRBR"]
+    ),
+    exhaustTempLB,
+    exhaustTempRB,
+    crankcasePressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.crankcasePressure,
+      fallback.crankcasePressure ?? 0,
+      ["crankcasePressure"]
+    ),
+    fuelTemperature: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.fuelTemperature,
+      fallback.fuelTemperature ?? fallback.fuelTemp ?? 0,
+      ["fuelTemperature", "fuelTemp"]
+    ),
+    fuelTemp: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.fuelTemperature,
+      fallback.fuelTemp ?? fallback.fuelTemperature ?? 0,
+      ["fuelTemp", "fuelTemperature"]
+    ),
+    barometricPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.barometricPressure,
+      fallback.barometricPressure ?? 0,
+      ["barometricPressure"]
+    ),
+    lubeOilFilterDifferentialPressure: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.lubeOilFilterDifferentialPressure,
+      fallback.lubeOilFilterDifferentialPressure ?? 0,
+      ["lubeOilFilterDifferentialPressure"]
+    ),
+    mainControlPower: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.mainControlPower,
+      fallback.mainControlPower ?? 0,
+      ["mainControlPower"]
+    ),
+    backupControlPower: readHistoricalNumber(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.backupControlPower,
+      fallback.backupControlPower ?? 0,
+      ["backupControlPower"]
+    ),
+    lowLubOilShutdownBelow1500: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.lowLubOilShutdownBelow1500,
+      fallback.lowLubOilShutdownBelow1500 ?? false,
+      ["lowLubOilShutdownBelow1500"]
+    ),
+    lowLubOilShutdownAbove1500: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.lowLubOilShutdownAbove1500,
+      fallback.lowLubOilShutdownAbove1500 ?? false,
+      ["lowLubOilShutdownAbove1500"]
+    ),
+    highCoolantTemperatureShutdown: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.highCoolantTemperatureShutdown,
+      fallback.highCoolantTemperatureShutdown ?? false,
+      ["highCoolantTemperatureShutdown"]
+    ),
+    fuelLeakageAlarm: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.fuelLeakageAlarm,
+      fallback.fuelLeakageAlarm ?? false,
+      ["fuelLeakageAlarm"]
+    ),
+    overspeedShutdown: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.overspeedShutdown,
+      fallback.overspeedShutdown ?? false,
+      ["overspeedShutdown"]
+    ),
+    localEmergencyStop: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.localEmergencyStop,
+      fallback.localEmergencyStop ?? false,
+      ["localEmergencyStop"]
+    ),
+    remoteEmergencyStop: readHistoricalBoolean(
+      source,
+      historicalPrefix,
+      HISTORICAL_FIELD_SUFFIXES.remoteEmergencyStop,
+      fallback.remoteEmergencyStop ?? false,
+      ["remoteEmergencyStop"]
+    ),
     turboSpeed: readValue(source.turboSpeed, fallback.turboSpeed ?? 0),
     voltage: readValue(source.voltage, fallback.voltage ?? 400),
     current: readValue(source.current, fallback.current ?? 450),
     powerFactor: readValue(source.powerFactor, fallback.powerFactor ?? 0.84),
-    cylinders: cylinders.map((temp) => readValue(temp, 0)),
-    status: source.status || fallback.status || "unknown",
+    cylinders: safeCylinders,
+    status,
     alerts: source.alerts || fallback.alerts || [],
   };
 };
 
 const normalizeEngineData = (data) => {
   const source = data?.engines || data || {};
-  const keys = Array.from(new Set([...Object.keys(initialEngineData), ...Object.keys(source).filter((key) => !ENGINE_META_KEYS.has(key))]));
-  const normalized = keys.reduce((acc, key) => {
-    acc[key] = normalizeEngine(source[key], initialEngineData[key]);
+  const normalized = Object.keys(initialEngineData).reduce((acc, key) => {
+    const historicalPrefix = ENGINE_ID_TO_HISTORICAL_PREFIX[key];
+    const sourceEngine =
+      source[key] ||
+      source[historicalPrefix] ||
+      (hasHistoricalEngineFields(source, historicalPrefix) ? source : {});
+    acc[key] = normalizeEngine(sourceEngine, initialEngineData[key], historicalPrefix);
     return acc;
   }, {});
+
+  Object.keys(source)
+    .filter((key) => !ENGINE_META_KEYS.has(key))
+    .filter((key) => !Object.prototype.hasOwnProperty.call(normalized, key))
+    .filter((key) => !HISTORICAL_ENGINE_PREFIXES.includes(key))
+    .filter((key) => source[key] && typeof source[key] === "object")
+    .forEach((key) => {
+      const historicalPrefix = ENGINE_ID_TO_HISTORICAL_PREFIX[key] || "CMMS01";
+      normalized[key] = normalizeEngine(source[key], initialEngineData[key] || {}, historicalPrefix);
+    });
 
   return {
     ...normalized,
@@ -302,15 +744,59 @@ const normalizeSystemStatus = (data) => ({
   },
 });
 
-const normalizeTrendPoints = (data) =>
-  (data?.points || data || []).map((point) => ({
+const readTrendHistoricalNumber = (point, suffix, fallback, aliases = []) => {
+  const preferredPrefix =
+    point.historicalSource ||
+    point.sourcePrefix ||
+    ENGINE_ID_TO_HISTORICAL_PREFIX[point.engineId] ||
+    "CMMS01";
+  const exact = getFirstHistoricalFieldValue(point, suffix, preferredPrefix);
+  if (exact !== undefined) return readNumeric(exact, fallback);
+  return readNumeric(readObjectValue(point, aliases, undefined), fallback);
+};
+
+const normalizeTrendPoint = (point) => {
+  const cylinderValues = HISTORICAL_CYLINDER_SUFFIXES
+    .map((suffix) => getFirstHistoricalFieldValue(point, suffix, point.historicalSource || "CMMS01"))
+    .filter((value) => value !== undefined)
+    .map((value) => readNumeric(value, 0));
+  const exhaustTempLB = readTrendHistoricalNumber(
+    point,
+    HISTORICAL_FIELD_SUFFIXES.exhaustTempLB,
+    undefined,
+    ["exhaustTempLB"]
+  );
+  const exhaustTempRB = readTrendHistoricalNumber(
+    point,
+    HISTORICAL_FIELD_SUFFIXES.exhaustTempRB,
+    undefined,
+    ["exhaustTempRB"]
+  );
+  const derivedExhaustTemp =
+    average([exhaustTempLB, exhaustTempRB].filter((value) => value !== undefined)) ||
+    average(cylinderValues);
+
+  return {
     ...point,
-    time: point.time ? new Date(point.time) : new Date(point.timestamp),
-  }));
+    time: point.time ? new Date(point.time) : new Date(point.timestamp || point.Source_Tag),
+    rpm: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.engineSpeed, point.rpm ?? 0, ["rpm", "engineSpeed"]),
+    temperature: readNumeric(point.temperature, readNumeric(point.exhaustTemp, derivedExhaustTemp)),
+    exhaustTemp: readNumeric(point.exhaustTemp, derivedExhaustTemp),
+    pressure: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.lubeOilPress, point.pressure ?? 0, ["pressure", "lubeOilPressure", "oilPressure"]),
+    lubeOilPressure: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.lubeOilPress, point.lubeOilPressure ?? point.oilPressure ?? 0, ["lubeOilPressure", "oilPressure"]),
+    coolantTemp: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.coolantTemperature, point.coolantTemp ?? 0, ["coolantTemp", "coolantTemperature"]),
+    lubeOilTemp: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.lubricatingOilTemperature, point.lubeOilTemp ?? 0, ["lubeOilTemp", "lubricatingOilTemperature"]),
+    fuelPressure: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.fuelDeliveryPressure, point.fuelPressure ?? point.fuelDeliveryPressure ?? 0, ["fuelPressure", "fuelDeliveryPressure"]),
+    fuelTemp: readTrendHistoricalNumber(point, HISTORICAL_FIELD_SUFFIXES.fuelTemperature, point.fuelTemp ?? point.fuelTemperature ?? 0, ["fuelTemp", "fuelTemperature"]),
+  };
+};
+
+const normalizeTrendPoints = (data) =>
+  (data?.points || data || []).map(normalizeTrendPoint);
 
 const useBackendResource = (endpoint, intervalMs, initialData, transform, options = {}) =>
   useApiResource(buildApiPath(endpoint, { vesselId: DEFAULT_VESSEL_ID }), {
-    enabled: USE_BACKEND,
+    enabled: USE_BACKEND_API,
     intervalMs,
     initialData,
     transform,
@@ -336,7 +822,7 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
   );
 
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     const interval = setInterval(() => {
       setData((prev) => {
@@ -379,7 +865,7 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, smoothingFilter]);
 
-  return USE_BACKEND ? backendResource.data || initialVesselData : data;
+  return USE_BACKEND_API ? backendResource.data || initialVesselData : data;
 };
 
 // 自定义钩子：实时引擎数据
@@ -396,7 +882,7 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
 
   // 故障注入效果
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     if (faultInjectionEnabled) {
       // 强制生成紧急故障
@@ -433,7 +919,7 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
   }, [faultInjectionEnabled]);
 
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     const interval = setInterval(() => {
       setEngines((prev) => {
@@ -458,6 +944,9 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
               });
             }
           }
+          const newCylinders = engine.cylinders.map((temp) => Math.round(fluctuate(temp, 350, 500, 0.015)));
+          const newExhaustTempLB = average(newCylinders.slice(0, 8));
+          const newExhaustTempRB = average(newCylinders.slice(8, 16));
 
           updated[engineKey] = {
             ...engine,
@@ -468,9 +957,28 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
             torque: engine.status === "running" ? fluctuate(engine.torque, engine.torque * 0.8, engine.torque * 1.1, 0.02) : engine.torque,
             exhaustTemp: engine.status === "running" ? fluctuate(engine.exhaustTemp, 350, 500, 0.01) : engine.exhaustTemp,
             coolantTemp: engine.status === "running" ? fluctuate(engine.coolantTemp, 70, 95, 0.01) : engine.coolantTemp,
+            lubeOilTemp: engine.status === "running" ? fluctuate(engine.lubeOilTemp, 72, 98, 0.012) : engine.lubeOilTemp,
             oilPressure: newOilPressure,
+            lubeOilPress: newOilPressure,
+            coolantPressure: engine.status === "running" ? fluctuate(engine.coolantPressure, 2.4, 4.2, 0.012) : engine.coolantPressure,
+            seaWaterPressure: engine.status === "running" ? fluctuate(engine.seaWaterPressure, 2.0, 3.8, 0.012) : engine.seaWaterPressure,
+            fuelRailPressure: engine.status === "running" ? fluctuate(engine.fuelRailPressure, 6.2, 8.8, 0.015) : engine.fuelRailPressure,
+            fuelDeliveryPressure: engine.status === "running" ? fluctuate(engine.fuelDeliveryPressure, 3.4, 5.4, 0.015) : engine.fuelDeliveryPressure,
+            fuelPressure: engine.status === "running" ? fluctuate(engine.fuelPressure || engine.fuelDeliveryPressure, 3.4, 5.4, 0.015) : engine.fuelPressure,
+            intakeManifoldPressureLB: engine.status === "running" ? fluctuate(engine.intakeManifoldPressureLB, 1.7, 3.1, 0.012) : engine.intakeManifoldPressureLB,
+            intakeManifoldPressureRB: engine.status === "running" ? fluctuate(engine.intakeManifoldPressureRB, 1.7, 3.1, 0.012) : engine.intakeManifoldPressureRB,
+            intakeManifoldTemperatureLBF: engine.status === "running" ? fluctuate(engine.intakeManifoldTemperatureLBF, 35, 60, 0.012) : engine.intakeManifoldTemperatureLBF,
+            intakeManifoldTemperatureLBR: engine.status === "running" ? fluctuate(engine.intakeManifoldTemperatureLBR, 35, 60, 0.012) : engine.intakeManifoldTemperatureLBR,
+            intakeManifoldTemperatureRBF: engine.status === "running" ? fluctuate(engine.intakeManifoldTemperatureRBF, 35, 60, 0.012) : engine.intakeManifoldTemperatureRBF,
+            intakeManifoldTemperatureRBR: engine.status === "running" ? fluctuate(engine.intakeManifoldTemperatureRBR, 35, 60, 0.012) : engine.intakeManifoldTemperatureRBR,
+            exhaustTempLB: engine.status === "running" ? newExhaustTempLB : engine.exhaustTempLB,
+            exhaustTempRB: engine.status === "running" ? newExhaustTempRB : engine.exhaustTempRB,
+            crankcasePressure: engine.status === "running" ? fluctuate(engine.crankcasePressure, 8, 16, 0.02) : engine.crankcasePressure,
+            fuelTemperature: engine.status === "running" ? fluctuate(engine.fuelTemperature, 28, 52, 0.012) : engine.fuelTemperature,
+            fuelTemp: engine.status === "running" ? fluctuate(engine.fuelTemp || engine.fuelTemperature, 28, 52, 0.012) : engine.fuelTemp,
+            lubeOilFilterDifferentialPressure: engine.status === "running" ? fluctuate(engine.lubeOilFilterDifferentialPressure, 0.25, 0.9, 0.02) : engine.lubeOilFilterDifferentialPressure,
             turboSpeed: engine.status === "running" ? fluctuate(engine.turboSpeed, 15, 22, 0.02) : engine.turboSpeed,
-            cylinders: engine.cylinders.map((temp) => Math.round(fluctuate(temp, 350, 500, 0.015))),
+            cylinders: newCylinders,
             alerts: alerts.slice(-3), // 保留最近3条报警
           };
         });
@@ -482,7 +990,7 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, lubeOilPressureLowLimit, rpmHighAlertLimit]);
 
-  return USE_BACKEND ? backendResource.data || initialEngineData : engines;
+  return USE_BACKEND_API ? backendResource.data || initialEngineData : engines;
 };
 
 // 自定义钩子：实时导航数据
@@ -496,7 +1004,7 @@ export const useNavigationData = (updateInterval = 3000) => {
   );
 
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     const interval = setInterval(() => {
       setData((prev) => ({
@@ -531,7 +1039,7 @@ export const useNavigationData = (updateInterval = 3000) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return USE_BACKEND ? backendResource.data || initialNavigationData : data;
+  return USE_BACKEND_API ? backendResource.data || initialNavigationData : data;
 };
 
 // 自定义钩子：实时警报数据
@@ -595,7 +1103,7 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
     [localizeSource, localizeMessage]
   );
 
-  const alarmSource = USE_BACKEND ? backendResource.data || initialAlarmsData : alarms;
+  const alarmSource = USE_BACKEND_API ? backendResource.data || initialAlarmsData : alarms;
 
   // expose localized alarms to consumers
   const localizedAlarms = {
@@ -609,7 +1117,7 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
   };
 
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     const interval = setInterval(() => {
       setAlarms((prev) => {
@@ -652,7 +1160,7 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
   }, [updateInterval, language]);
 
   const acknowledgeAlarm = useCallback(async (id) => {
-    if (USE_BACKEND) {
+    if (USE_BACKEND_API) {
       setAcknowledgedIds((prev) => new Set(prev).add(id));
       try {
         await apiRequest(buildApiPath(API_ENDPOINTS.acknowledgeAlarm, { vesselId: DEFAULT_VESSEL_ID, alarmId: id }), {
@@ -693,7 +1201,7 @@ export const useSystemStatus = (updateInterval = 1500) => {
   );
 
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     const interval = setInterval(() => {
       setStatus((prev) => ({
@@ -708,7 +1216,7 @@ export const useSystemStatus = (updateInterval = 1500) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return USE_BACKEND ? backendResource.data || initialSystemStatus : status;
+  return USE_BACKEND_API ? backendResource.data || initialSystemStatus : status;
 };
 
 // 生成图表数据
@@ -748,7 +1256,7 @@ export const useTrendData = (hours = 24, points = 100) => {
   );
 
   useEffect(() => {
-    if (USE_BACKEND) return undefined;
+    if (!USE_LOCAL_DEMO_DATA) return undefined;
 
     const interval = setInterval(() => {
       setData((prev) => {
@@ -776,7 +1284,7 @@ export const useTrendData = (hours = 24, points = 100) => {
     return () => clearInterval(interval);
   }, []);
 
-  return USE_BACKEND ? backendResource.data || data : data;
+  return USE_BACKEND_API ? backendResource.data || data : data;
 };
 
 const realTimeDataHooks = {

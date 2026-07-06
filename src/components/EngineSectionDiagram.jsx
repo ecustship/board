@@ -178,41 +178,41 @@ const EngineSectionDiagram = ({ engine }) => {
     const avg = (items) => items.reduce((sum, item) => sum + item, 0) / items.length;
     const oilPress = engine?.oilPressure || 4.2;
     const coolantTemp = engine?.coolantTemp || 78;
-    const lubeOilTemp = coolantTemp + 7;
-    const fuelDeliveryPress = 4.5;
+    const lubeOilTemp = engine?.lubeOilTemp ?? engine?.lubricatingOilTemperature ?? coolantTemp + 7;
+    const fuelDeliveryPress = engine?.fuelDeliveryPressure ?? engine?.fuelPressure ?? 4.5;
 
     return {
       lubeOilPress: oilPress,
       coolantTemperature: coolantTemp,
       lubricatingOilTemperature: lubeOilTemp,
-      coolantPressure: 3.2,
-      seaWaterPressure: 2.8,
-      expansionTankLowAlarm: false,
+      coolantPressure: engine?.coolantPressure ?? 3.2,
+      seaWaterPressure: engine?.seaWaterPressure ?? 2.8,
+      expansionTankLowAlarm: engine?.expansionTankLowAlarm ?? false,
       exhaustCylinders: cylinderTemps.map((temp, index) => ({ id: index + 1, temp })),
-      fuelRailPressure: 7.6,
+      fuelRailPressure: engine?.fuelRailPressure ?? 7.6,
       fuelDeliveryPressure: fuelDeliveryPress,
-      intakeManifoldPressureLB: 2.4,
-      intakeManifoldPressureRB: 2.6,
-      intakeManifoldTemperatureLBF: 45,
-      intakeManifoldTemperatureLBR: 47,
-      intakeManifoldTemperatureRBF: 46,
-      intakeManifoldTemperatureRBR: 48,
-      exhaustTempLB: avg(lbTemps),
-      exhaustTempRB: avg(rbTemps),
-      crankcasePressure: 12.1,
-      fuelTemperature: 38,
-      barometricPressure: 1.0,
-      lubeOilFilterDifferentialPressure: 0.52,
-      mainControlPower: 24,
-      backupControlPower: 24,
-      lowLubOilShutdownBelow1500: oilPress < 2.1,
-      lowLubOilShutdownAbove1500: oilPress < 2.8,
-      highCoolantTemperatureShutdown: coolantTemp > 95,
-      fuelLeakageAlarm: false,
+      intakeManifoldPressureLB: engine?.intakeManifoldPressureLB ?? 2.4,
+      intakeManifoldPressureRB: engine?.intakeManifoldPressureRB ?? 2.6,
+      intakeManifoldTemperatureLBF: engine?.intakeManifoldTemperatureLBF ?? 45,
+      intakeManifoldTemperatureLBR: engine?.intakeManifoldTemperatureLBR ?? 47,
+      intakeManifoldTemperatureRBF: engine?.intakeManifoldTemperatureRBF ?? 46,
+      intakeManifoldTemperatureRBR: engine?.intakeManifoldTemperatureRBR ?? 48,
+      exhaustTempLB: engine?.exhaustTempLB ?? avg(lbTemps),
+      exhaustTempRB: engine?.exhaustTempRB ?? avg(rbTemps),
+      crankcasePressure: engine?.crankcasePressure ?? 12.1,
+      fuelTemperature: engine?.fuelTemperature ?? engine?.fuelTemp ?? 38,
+      barometricPressure: engine?.barometricPressure ?? 1.0,
+      lubeOilFilterDifferentialPressure: engine?.lubeOilFilterDifferentialPressure ?? 0.52,
+      mainControlPower: engine?.mainControlPower ?? 24,
+      backupControlPower: engine?.backupControlPower ?? 24,
+      lowLubOilShutdownBelow1500: engine?.lowLubOilShutdownBelow1500 ?? oilPress < 2.1,
+      lowLubOilShutdownAbove1500: engine?.lowLubOilShutdownAbove1500 ?? oilPress < 2.8,
+      highCoolantTemperatureShutdown: engine?.highCoolantTemperatureShutdown ?? coolantTemp > 95,
+      fuelLeakageAlarm: engine?.fuelLeakageAlarm ?? false,
       engineSpeed: engine?.rpm || 850,
-      overspeedShutdown: (engine?.rpm || 850) > 1100,
-      localEmergencyStop: false,
-      remoteEmergencyStop: false,
+      overspeedShutdown: engine?.overspeedShutdown ?? (engine?.rpm || 850) > 1100,
+      localEmergencyStop: engine?.localEmergencyStop ?? false,
+      remoteEmergencyStop: engine?.remoteEmergencyStop ?? false,
     };
   }, [engine]);
 

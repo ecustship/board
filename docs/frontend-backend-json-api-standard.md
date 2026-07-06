@@ -6,6 +6,8 @@
 
 配套参数映射清单：`docs/page-parameter-master-table-mapping.md`
 
+发动机/主机运行数据字段名标准：`docs/historical-information-api-field-standard.md`
+
 ## 1. 总原则
 
 前端页面不得再直接依赖本地写死数据作为正式数据源。所有业务数据必须由后端接口返回，前端只负责：
@@ -167,28 +169,63 @@ GET /api/v1/vessels/{vesselId}/realtime
 GET /api/v1/vessels/{vesselId}/engines
 ```
 
+发动机运行数据的接口字段名必须与 `副本Historical Information.xlsx` 表头完全一致。  
+`engines` 下推荐使用 `CMMS01`、`CMMS02`、`CMMS03`、`CMMS04` 作为数据源 key；前端会在数据适配层映射到内部 `diesel1`、`diesel2`、`aux1`、`aux2`。
+
 ```json
 {
   "timestamp": "2026-06-30T10:15:00+08:00",
   "source": "MODBUS/RS485",
   "quality": "GOOD",
   "engines": {
-    "diesel1": {
-      "rpm": 850,
-      "power": 12450,
-      "load": 88,
-      "fuelRate": 285.5,
-      "torque": 142.3,
-      "exhaustTemp": 412.5,
-      "coolantTemp": 78,
-      "oilPressure": 4.2,
-      "turboSpeed": 18.2,
-      "voltage": 400,
-      "current": 450,
-      "powerFactor": 0.84,
-      "cylinders": [438, 425, 418, 432, 420, 408, 445, 416, 422, 410, 430, 428, 415, 420, 422, 418],
-      "status": "running",
-      "alerts": []
+    "CMMS01": {
+      "Source_Tag": "2026-06-30T10:15:00+08:00",
+      "CMMS01_Lube Oil Press": 4.2,
+      "CMMS01_Coolant Temperature": 78,
+      "CMMS01_Lubricating Oil Temperature": 85,
+      "CMMS01_Coolant Pressure": 3.2,
+      "CMMS01_Sea Water Pressure": 2.8,
+      "CMMS01_Engine Expansion Tank Level Low Alarm": false,
+      "CMMS01_Exhaust Temp. CylinCMMSr 1": 438,
+      "CMMS01_Exhaust Temp. CylinCMMSr 2": 425,
+      "CMMS01_Exhaust Temp. CylinCMMSr 3": 418,
+      "CMMS01_Exhaust Temp. CylinCMMSr 4": 432,
+      "CMMS01_Exhaust Temp. CylinCMMSr 5": 420,
+      "CMMS01_Exhaust Temp. CylinCMMSr 6": 408,
+      "CMMS01_Exhaust Temp. CylinCMMSr 7": 445,
+      "CMMS01_Exhaust Temp. CylinCMMSr 8": 416,
+      "CMMS01_Exhaust Temp. CylinCMMSr 9": 422,
+      "CMMS01_Exhaust Temp. CylinCMMSr 10": 410,
+      "CMMS01_Exhaust Temp. CylinCMMSr 11": 430,
+      "CMMS01_Exhaust Temp. CylinCMMSr 12": 428,
+      "CMMS01_Exhaust Temp. CylinCMMSr 13": 415,
+      "CMMS01_Exhaust Temp. CylinCMMSr 14": 420,
+      "CMMS01_Exhaust Temp. CylinCMMSr 15": 422,
+      "CMMS01_Exhaust Temp. CylinCMMSr 16": 418,
+      "CMMS01_Fuel Rail Pressure": 7.6,
+      "CMMS01_Fuel CMMSlivery Pressure": 4.5,
+      "CMMS01_Intake Manifold Pressure LB": 2.4,
+      "CMMS01_Intake Manifold Pressure RB": 2.6,
+      "CMMS01_Intake Manifold Temperature LBF": 45,
+      "CMMS01_Intake Manifold Temperature LBR": 47,
+      "CMMS01_Intake Manifold Temperature RBF": 46,
+      "CMMS01_Intake Manifold Temperature RBR": 48,
+      "CMMS01_Exhaust Temp. LB": 425,
+      "CMMS01_Exhaust Temp. RB ": 421,
+      "CMMS01_Crankcase Pressure": 12.1,
+      "CMMS01_Fuel Temperature": 38,
+      "CMMS01_Barometric Pressure": 1.0,
+      "CMMS01_Lube Oil Filter Diferential Pressure": 0.52,
+      "CMMS01_Main Control Power": 24,
+      "CMMS01_Backup Control Power": 24,
+      "CMMS01_Low Lub. Oil Pressure Shutdown (below 1500rpm) ": false,
+      "CMMS01_Low Lub. Oil Pressure Shutdown (above 1500rpm)": false,
+      "CMMS01_High Coolant Temperature Shutdown": false,
+      "CMMS01_Fuel Leakage Alarm": false,
+      "CMMS01_Engine Speed": 850,
+      "CMMS01_Overspeed Shutdown ": false,
+      "CMMS01_Local Emergency Stop": false,
+      "CMMS01_Remote Emergency Stop": false
     }
   }
 }
@@ -283,19 +320,20 @@ GET /api/v1/vessels/{vesselId}/trend?hours=8760&points=730
 
 ```json
 {
-  "metrics": ["power", "rpm", "exhaustTemp"],
+  "metrics": ["CMMS01_Engine Speed", "CMMS01_Lube Oil Press", "CMMS01_Exhaust Temp. LB"],
   "points": [
     {
       "timestamp": "2026-01-01T00:00:00+08:00",
+      "Source_Tag": "2026-01-01T00:00:00+08:00",
+      "CMMS01_Engine Speed": 850,
+      "CMMS01_Lube Oil Press": 4.2,
+      "CMMS01_Coolant Temperature": 78,
+      "CMMS01_Lubricating Oil Temperature": 85,
+      "CMMS01_Fuel CMMSlivery Pressure": 4.5,
+      "CMMS01_Fuel Temperature": 38,
+      "CMMS01_Exhaust Temp. LB": 425,
+      "CMMS01_Exhaust Temp. RB ": 421,
       "power": 12450,
-      "rpm": 850,
-      "exhaustTemp": 412.5,
-      "pressure": 4.2,
-      "lubeOilPressure": 4.2,
-      "coolantTemp": 78,
-      "lubeOilTemp": 85,
-      "fuelPressure": 7.6,
-      "fuelTemp": 38,
       "load": 88,
       "vesselSpeed": 10,
       "windSpeed": 18
@@ -305,6 +343,7 @@ GET /api/v1/vessels/{vesselId}/trend?hours=8760&points=730
 ```
 
 前端曲线选点必须以 `timestamp` 为准。
+趋势接口可额外返回 `power`、`load`、`vesselSpeed`、`windSpeed` 等非 Historical 主表字段；主机运行参数必须优先使用 Historical 原表字段名。
 
 ## 11. 系统状态
 

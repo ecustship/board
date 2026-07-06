@@ -10,7 +10,7 @@
 ## 1. 使用原则
 
 1. 页面展示的运行参数必须由后端接口返回，前端页面不直接读取 MODBUS 寄存器。
-2. 后端根据主表读取 `485 Address Code`，再输出前端 JSON 字段。
+2. 后端根据主表读取 `485 Address Code`，运行数据接口字段名必须与 `副本Historical Information.xlsx` 表头完全一致。
 3. JSON 字段采用 UI 标准单位；主表原始单位保留在点表或 `rawValue` 中。
 4. 主表没有的 UI 参数必须标为“主表未提供”，不能假装来自主表。
 5. 报警由船端/后端判断，前端只展示报警 bit 或报警事件。
@@ -26,10 +26,11 @@
 | `1h` / `1min` / `1s` | `h` / `min` / `s` | 不换算 |
 | `/` | 由点位语义决定 | 数字报警通常按 bit 处理 |
 
-## 2.1 后端接口字段总表
+## 2.1 接口字段总表
 
-下面的“后端接口字段”是后端 JSON envelope 中 `data` 下面的字段路径。  
-`{engineId}` 表示 `diesel1`、`diesel2`、`aux1`、`aux2` 等发动机/机组编号。
+发动机/主机运行数据的“后端接口字段”必须采用 `副本Historical Information.xlsx` 原始表头，详见 `docs/historical-information-api-field-standard.md`。  
+`data.engines.CMMS01`、`data.engines.CMMS02`、`data.engines.CMMS03`、`data.engines.CMMS04` 分别对应 4 个 sheet。  
+下面表格里的 `data.engines.{engineId}.xxx` 是前端数据适配层输出给 UI 组件使用的内部字段，不再作为后端正式字段名。
 
 ### 2.1.1 主机/发动机接口字段
 
@@ -39,57 +40,57 @@
 GET /api/v1/vessels/{vesselId}/engines
 ```
 
-| UI 参数 | 后端接口字段 | 主表 Signal Content | 地址/Bit | 说明 |
+| UI 参数 | 前端内部字段 | Historical 后端原字段名 | 地址/Bit | 说明 |
 | --- | --- | --- | --- | --- |
-| 发动机转速 | `data.engines.{engineId}.rpm` | Engine Speed | `40262` | rpm |
-| 冷却水温度 | `data.engines.{engineId}.coolantTemp` | Coolant Temperature | `40263` | °C |
-| 滑油温度 | `data.engines.{engineId}.lubeOilTemp` | Oil Temperature | `40264` | °C |
-| 滑油压力 | `data.engines.{engineId}.oilPressure` | Oil Pressure | `40267` | 后端 kPa 转 bar |
-| 冷却水压力 | `data.engines.{engineId}.coolantPressure` | Coolant Pressure | `40286` | 后端 kPa 转 bar |
-| 海水压力 | `data.engines.{engineId}.seaWaterPressure` | Sea Water Pressure | `40269` | 后端 kPa 转 bar |
-| 燃油压力 | `data.engines.{engineId}.fuelPressure` | Fuel Pressure | `40287` | 后端 kPa 转 bar |
-| 燃油温度 | `data.engines.{engineId}.fuelTemp` | Fuel temperature | `40288` | °C |
-| 1缸排气温度 | `data.engines.{engineId}.cylinders[0]` | Exhaust Temp. CylinCMMSr 1 | `40353` | °C |
-| 2缸排气温度 | `data.engines.{engineId}.cylinders[1]` | Exhaust Temp. CylinCMMSr 2 | `40354` | °C |
-| 3缸排气温度 | `data.engines.{engineId}.cylinders[2]` | Exhaust Temp. CylinCMMSr 3 | `40355` | °C |
-| 4缸排气温度 | `data.engines.{engineId}.cylinders[3]` | Exhaust Temp. CylinCMMSr 4 | `40356` | °C |
-| 5缸排气温度 | `data.engines.{engineId}.cylinders[4]` | Exhaust Temp. CylinCMMSr 5 | `40357` | °C |
-| 6缸排气温度 | `data.engines.{engineId}.cylinders[5]` | Exhaust Temp. CylinCMMSr 6 | `40358` | °C |
-| 7缸排气温度 | `data.engines.{engineId}.cylinders[6]` | Exhaust Temp. CylinCMMSr 7 | `40359` | °C |
-| 8缸排气温度 | `data.engines.{engineId}.cylinders[7]` | Exhaust Temp. CylinCMMSr 8 | `40360` | °C |
-| 9缸排气温度 | `data.engines.{engineId}.cylinders[8]` | Exhaust Temp. CylinCMMSr 9 | `40361` | °C |
-| 10缸排气温度 | `data.engines.{engineId}.cylinders[9]` | Exhaust Temp. CylinCMMSr 10 | `40362` | °C |
-| 11缸排气温度 | `data.engines.{engineId}.cylinders[10]` | Exhaust Temp. CylinCMMSr 11 | `40363` | °C |
-| 12缸排气温度 | `data.engines.{engineId}.cylinders[11]` | Exhaust Temp. CylinCMMSr 12 | `40364` | °C |
-| 13缸排气温度 | `data.engines.{engineId}.cylinders[12]` | Exhaust Temp. CylinCMMSr 13 | `40365` | °C |
-| 14缸排气温度 | `data.engines.{engineId}.cylinders[13]` | Exhaust Temp. CylinCMMSr 14 | `40366` | °C |
-| 15缸排气温度 | `data.engines.{engineId}.cylinders[14]` | Exhaust Temp. CylinCMMSr 15 | `40367` | °C |
-| 16缸排气温度 | `data.engines.{engineId}.cylinders[15]` | Exhaust Temp. CylinCMMSr 16 | `40368` | °C |
-| 左列排气温度 | `data.engines.{engineId}.exhaustTempLB` | left exhaust temperature | `40328` | °C |
-| 右列排气温度 | `data.engines.{engineId}.exhaustTempRB` | right exhaust temperature | `40329` | °C |
-| 页面综合排气温度 | `data.engines.{engineId}.exhaustTemp` | 左右排温或16缸排温派生 | `40328/40329/40353-40368` | 后端派生字段，需说明计算规则 |
-| 燃油共轨压力 | `data.engines.{engineId}.fuelRailPressure` | Fuel Rail Pressure | `40375` | 后端 kPa 转 bar |
-| 燃油供给压力 | `data.engines.{engineId}.fuelDeliveryPressure` | Fuel Pressure | `40287` | 主表无同名点位，暂映射 Fuel Pressure |
-| 左列歧管压力 | `data.engines.{engineId}.intakeManifoldPressureLB` | Intake Manifold Pressure LB | `40369` | 后端 kPa 转 bar |
-| 右列歧管压力 | `data.engines.{engineId}.intakeManifoldPressureRB` | Intake Manifold Pressure RB | `40370` | 后端 kPa 转 bar |
-| 左列前端温度 | `data.engines.{engineId}.intakeManifoldTemperatureLBF` | Intake Manifold Temperature LBF | `40371` | °C |
-| 左列后端温度 | `data.engines.{engineId}.intakeManifoldTemperatureLBR` | Intake Manifold Temperature LBR | `40372` | °C |
-| 右列前端温度 | `data.engines.{engineId}.intakeManifoldTemperatureRBF` | Intake Manifold Temperature RBF | `40373` | °C |
-| 右列后端温度 | `data.engines.{engineId}.intakeManifoldTemperatureRBR` | Intake Manifold Temperature RBR | `40374` | °C |
-| 曲轴箱压力 | `data.engines.{engineId}.crankcasePressure` | Crankcase Pressure | `40377` | 单位需确认 |
-| 大气压力 | `data.engines.{engineId}.barometricPressure` | 无 | 无 | 主表未提供 |
-| 滑油滤器压差 | `data.engines.{engineId}.lubeOilFilterDifferentialPressure` | Lube Oil Filter Diferential Pressure | `40378` | 后端 kPa 转 bar |
-| 主控制电源 | `data.engines.{engineId}.mainControlPower` | Main Power Voltage | `40271` | 后端 raw 乘以 0.1 |
-| 备用控制电源 | `data.engines.{engineId}.backupControlPower` | Backup Power Voltage | `40272` | 后端 raw 乘以 0.1 |
-| 发动机运行 | `data.engines.{engineId}.running` / `data.engines.{engineId}.status` | Genset Running | `40001.14` | 后端可输出 boolean 和状态字符串 |
-| 膨胀水箱液位低 | `data.engines.{engineId}.expansionTankLowAlarm` | Coolant Level Low Alarm | `40034.12` | 推断匹配 |
-| 低滑油压力停机 <1500 | `data.engines.{engineId}.lowLubOilShutdownBelow1500` | Lube Oil Pressure SD switch alarm(LSR) | `40011.11` | 推断匹配 |
-| 低滑油压力停机 >1500 | `data.engines.{engineId}.lowLubOilShutdownAbove1500` | Lube Oil Pressure SD switch alarm（HSR） | `40011.9` | 推断匹配 |
-| 高冷却水温停机 | `data.engines.{engineId}.highCoolantTemperatureShutdown` | High Coolant Temperature Shutdown Alarm | `40011.10/40005.0` | 后端合并或说明优先级 |
-| 燃油泄漏报警 | `data.engines.{engineId}.fuelLeakageAlarm` | Fuel leakage alarm | `40034.11` |  |
-| 超速停机 | `data.engines.{engineId}.overspeedShutdown` | Overspeed Shutdown Alarm | `40002.1` |  |
-| 本地急停 | `data.engines.{engineId}.localEmergencyStop` | Local Emergency Shutdown Alarm | `40002.0` |  |
-| 远程急停 | `data.engines.{engineId}.remoteEmergencyStop` | Remote Emergency Shutdown Alarm | `40011.8` |  |
+| 发动机转速 | `data.engines.{engineId}.rpm` | `{CMMS}_Engine Speed` | `40262` | rpm |
+| 冷却水温度 | `data.engines.{engineId}.coolantTemp` | `{CMMS}_Coolant Temperature` | `40263` | °C |
+| 滑油温度 | `data.engines.{engineId}.lubeOilTemp` | `{CMMS}_Lubricating Oil Temperature` | `40264` | °C |
+| 滑油压力 | `data.engines.{engineId}.oilPressure` | `{CMMS}_Lube Oil Press` | `40267` | 后端/采集侧应统一输出 UI 单位 |
+| 冷却水压力 | `data.engines.{engineId}.coolantPressure` | `{CMMS}_Coolant Pressure` | `40286` | 后端/采集侧应统一输出 UI 单位 |
+| 海水压力 | `data.engines.{engineId}.seaWaterPressure` | `{CMMS}_Sea Water Pressure` | `40269` | 后端/采集侧应统一输出 UI 单位 |
+| 燃油压力 | `data.engines.{engineId}.fuelPressure` | `{CMMS}_Fuel CMMSlivery Pressure` | `40287` | 原表字段按 `CMMSlivery` 保留 |
+| 燃油温度 | `data.engines.{engineId}.fuelTemp` | `{CMMS}_Fuel Temperature` | `40288` | °C |
+| 1缸排气温度 | `data.engines.{engineId}.cylinders[0]` | `{CMMS}_Exhaust Temp. CylinCMMSr 1` | `40353` | °C |
+| 2缸排气温度 | `data.engines.{engineId}.cylinders[1]` | `{CMMS}_Exhaust Temp. CylinCMMSr 2` | `40354` | °C |
+| 3缸排气温度 | `data.engines.{engineId}.cylinders[2]` | `{CMMS}_Exhaust Temp. CylinCMMSr 3` | `40355` | °C |
+| 4缸排气温度 | `data.engines.{engineId}.cylinders[3]` | `{CMMS}_Exhaust Temp. CylinCMMSr 4` | `40356` | °C |
+| 5缸排气温度 | `data.engines.{engineId}.cylinders[4]` | `{CMMS}_Exhaust Temp. CylinCMMSr 5` | `40357` | °C |
+| 6缸排气温度 | `data.engines.{engineId}.cylinders[5]` | `{CMMS}_Exhaust Temp. CylinCMMSr 6` | `40358` | °C |
+| 7缸排气温度 | `data.engines.{engineId}.cylinders[6]` | `{CMMS}_Exhaust Temp. CylinCMMSr 7` | `40359` | °C |
+| 8缸排气温度 | `data.engines.{engineId}.cylinders[7]` | `{CMMS}_Exhaust Temp. CylinCMMSr 8` | `40360` | °C |
+| 9缸排气温度 | `data.engines.{engineId}.cylinders[8]` | `{CMMS}_Exhaust Temp. CylinCMMSr 9` | `40361` | °C |
+| 10缸排气温度 | `data.engines.{engineId}.cylinders[9]` | `{CMMS}_Exhaust Temp. CylinCMMSr 10` | `40362` | °C |
+| 11缸排气温度 | `data.engines.{engineId}.cylinders[10]` | `{CMMS}_Exhaust Temp. CylinCMMSr 11` | `40363` | °C |
+| 12缸排气温度 | `data.engines.{engineId}.cylinders[11]` | `{CMMS}_Exhaust Temp. CylinCMMSr 12` | `40364` | °C |
+| 13缸排气温度 | `data.engines.{engineId}.cylinders[12]` | `{CMMS}_Exhaust Temp. CylinCMMSr 13` | `40365` | °C |
+| 14缸排气温度 | `data.engines.{engineId}.cylinders[13]` | `{CMMS}_Exhaust Temp. CylinCMMSr 14` | `40366` | °C |
+| 15缸排气温度 | `data.engines.{engineId}.cylinders[14]` | `{CMMS}_Exhaust Temp. CylinCMMSr 15` | `40367` | °C |
+| 16缸排气温度 | `data.engines.{engineId}.cylinders[15]` | `{CMMS}_Exhaust Temp. CylinCMMSr 16` | `40368` | °C |
+| 左列排气温度 | `data.engines.{engineId}.exhaustTempLB` | `{CMMS}_Exhaust Temp. LB` | `40328` | °C |
+| 右列排气温度 | `data.engines.{engineId}.exhaustTempRB` | `{CMMS}_Exhaust Temp. RB ` | `40329` | 原表尾部有空格 |
+| 页面综合排气温度 | `data.engines.{engineId}.exhaustTemp` | `{CMMS}_Exhaust Temp. LB` / `{CMMS}_Exhaust Temp. RB ` / 16缸排温 | `40328/40329/40353-40368` | 前端适配层派生显示值 |
+| 燃油共轨压力 | `data.engines.{engineId}.fuelRailPressure` | `{CMMS}_Fuel Rail Pressure` | `40375` | 后端/采集侧应统一输出 UI 单位 |
+| 燃油供给压力 | `data.engines.{engineId}.fuelDeliveryPressure` | `{CMMS}_Fuel CMMSlivery Pressure` | `40287` | 原表字段按 `CMMSlivery` 保留 |
+| 左列歧管压力 | `data.engines.{engineId}.intakeManifoldPressureLB` | `{CMMS}_Intake Manifold Pressure LB` | `40369` | 后端/采集侧应统一输出 UI 单位 |
+| 右列歧管压力 | `data.engines.{engineId}.intakeManifoldPressureRB` | `{CMMS}_Intake Manifold Pressure RB` | `40370` | 后端/采集侧应统一输出 UI 单位 |
+| 左列前端温度 | `data.engines.{engineId}.intakeManifoldTemperatureLBF` | `{CMMS}_Intake Manifold Temperature LBF` | `40371` | °C |
+| 左列后端温度 | `data.engines.{engineId}.intakeManifoldTemperatureLBR` | `{CMMS}_Intake Manifold Temperature LBR` | `40372` | °C |
+| 右列前端温度 | `data.engines.{engineId}.intakeManifoldTemperatureRBF` | `{CMMS}_Intake Manifold Temperature RBF` | `40373` | °C |
+| 右列后端温度 | `data.engines.{engineId}.intakeManifoldTemperatureRBR` | `{CMMS}_Intake Manifold Temperature RBR` | `40374` | °C |
+| 曲轴箱压力 | `data.engines.{engineId}.crankcasePressure` | `{CMMS}_Crankcase Pressure` | `40377` | 单位需确认 |
+| 大气压力 | `data.engines.{engineId}.barometricPressure` | `{CMMS}_Barometric Pressure` | 无 | Historical 表提供字段，通信表地址需确认 |
+| 滑油滤器压差 | `data.engines.{engineId}.lubeOilFilterDifferentialPressure` | `{CMMS}_Lube Oil Filter Diferential Pressure` | `40378` | 原表字段按 `Diferential` 保留 |
+| 主控制电源 | `data.engines.{engineId}.mainControlPower` | `{CMMS}_Main Control Power` | `40271` | 后端/采集侧应统一输出 UI 单位 |
+| 备用控制电源 | `data.engines.{engineId}.backupControlPower` | `{CMMS}_Backup Control Power` | `40272` | 后端/采集侧应统一输出 UI 单位 |
+| 发动机运行 | `data.engines.{engineId}.running` / `data.engines.{engineId}.status` | 非 46 参数字段 | `40001.14` | 可由通信主表 bit 映射 |
+| 膨胀水箱液位低 | `data.engines.{engineId}.expansionTankLowAlarm` | `{CMMS}_Engine Expansion Tank Level Low Alarm` | `40034.12` | Historical 表原字段 |
+| 低滑油压力停机 <1500 | `data.engines.{engineId}.lowLubOilShutdownBelow1500` | `{CMMS}_Low Lub. Oil Pressure Shutdown (below 1500rpm) ` | `40011.11` | 原表尾部有空格 |
+| 低滑油压力停机 >1500 | `data.engines.{engineId}.lowLubOilShutdownAbove1500` | `{CMMS}_Low Lub. Oil Pressure Shutdown (above 1500rpm)` | `40011.9` | Historical 表原字段 |
+| 高冷却水温停机 | `data.engines.{engineId}.highCoolantTemperatureShutdown` | `{CMMS}_High Coolant Temperature Shutdown` | `40011.10/40005.0` | 后端合并或说明优先级 |
+| 燃油泄漏报警 | `data.engines.{engineId}.fuelLeakageAlarm` | `{CMMS}_Fuel Leakage Alarm` | `40034.11` | Historical 表原字段 |
+| 超速停机 | `data.engines.{engineId}.overspeedShutdown` | `{CMMS}_Overspeed Shutdown ` | `40002.1` | 原表尾部有空格 |
+| 本地急停 | `data.engines.{engineId}.localEmergencyStop` | `{CMMS}_Local Emergency Stop` | `40002.0` | Historical 表原字段 |
+| 远程急停 | `data.engines.{engineId}.remoteEmergencyStop` | `{CMMS}_Remote Emergency Stop` | `40011.8` | Historical 表原字段 |
 | 燃油流量 | `data.engines.{engineId}.fuelRate` | 无 | 无 | 主表未提供 |
 | 负载率 | `data.engines.{engineId}.load` | 无 | 无 | 主表未提供，可后端计算 |
 | 发电机输出电压 | `data.engines.{engineId}.voltage` | 无 | 无 | 主表未提供 |
@@ -181,8 +182,8 @@ GET /api/v1/vessels/{vesselId}/trend?hours=8760&points=730
 | Pressure | `data.points[].pressure` | 待定义 | 待定义 | 字段含义需确认 |
 | Lube Oil Press | `data.points[].lubeOilPressure` | Oil Pressure | `40267` | 已匹配 |
 | Coolant Temp | `data.points[].coolantTemp` | Coolant Temperature | `40263` | 已匹配 |
-| Lube Oil Temp | `data.points[].lubeOilTemp` | Oil Temperature | `40264` | 已匹配 |
-| Fuel Pressure | `data.points[].fuelPressure` | Fuel Pressure | `40287` | 已匹配 |
+| Lube Oil Temp | `data.points[].lubeOilTemp` | `{CMMS}_Lubricating Oil Temperature` | `40264` | 已匹配 |
+| Fuel Pressure | `data.points[].fuelPressure` | `{CMMS}_Fuel CMMSlivery Pressure` | `40287` | 已匹配，原表拼写保留 |
 | Fuel Temp | `data.points[].fuelTemp` | Fuel temperature | `40288` | 已匹配 |
 | Engine Load | `data.points[].load` | 无 | 无 | 主表未提供 |
 | Vessel Speed | `data.points[].vesselSpeed` | 无 | 无 | 非主机主表参数 |
@@ -213,7 +214,7 @@ GET /api/v1/vessels/{vesselId}/navigation
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 滑油压力 | `engine.oilPressure` / `lubeOilPress` | Oil Pressure | `40267` | `1kPa` | `bar` | 已匹配 | 后端需从 kPa 转 bar |
 | 冷却水温度 | `engine.coolantTemp` / `coolantTemperature` | Coolant Temperature | `40263` | `1℃` | `°C` | 已匹配 |  |
-| 滑油温度 | `lubricatingOilTemperature` | Oil Temperature | `40264` | `1℃` | `°C` | 已匹配 | 当前前端由冷却水温度 +7 推导，后端接入后应改为主表点位 |
+| 滑油温度 | `lubricatingOilTemperature` | `Lubricating Oil Temperature` | `40264` | `1℃` | `°C` | 已匹配 | 前端已优先读取 Historical 原字段 |
 | 冷却水压力 | `coolantPressure` | Coolant Pressure | `40286` | `1kPa` | `bar` | 已匹配 | 后端需从 kPa 转 bar |
 | 海水压力 | `seaWaterPressure` | Sea Water Pressure | `40269` | `1kPa` | `bar` | 已匹配 | 后端需从 kPa 转 bar |
 | 膨胀水箱液位低 | `expansionTankLowAlarm` | Coolant Level Low Alarm | `40034.12` | digital | boolean | 推断匹配 | 主表名称为冷却液位低报警，和历史表“Expansion Tank Level Low”需由陆工确认 |
@@ -234,7 +235,7 @@ GET /api/v1/vessels/{vesselId}/navigation
 | 15缸排气温度 | `cylinders[14]` | Exhaust Temp. CylinCMMSr 15 | `40367` | `1℃` | `°C` | 已匹配 |  |
 | 16缸排气温度 | `cylinders[15]` | Exhaust Temp. CylinCMMSr 16 | `40368` | `1℃` | `°C` | 已匹配 |  |
 | 燃油共轨压力 | `fuelRailPressure` | Fuel Rail Pressure | `40375` | `1kPa` | `bar` | 已匹配 | 后端需从 kPa 转 bar |
-| 燃油供给压力 | `fuelDeliveryPressure` | Fuel Pressure | `40287` | `1kPa` | `bar` | 推断匹配 | 主表没有 Fuel Delivery Pressure，现用 Fuel Pressure 对应，需确认名称 |
+| 燃油供给压力 | `fuelDeliveryPressure` | `Fuel CMMSlivery Pressure` | `40287` | `1kPa` | `bar` | 已匹配 | 原表拼写为 `CMMSlivery`，字段名必须照原文 |
 | 左列歧管压力 | `intakeManifoldPressureLB` | Intake Manifold Pressure LB | `40369` | `1kPa` | `bar` | 已匹配 |  |
 | 右列歧管压力 | `intakeManifoldPressureRB` | Intake Manifold Pressure RB | `40370` | `1kPa` | `bar` | 已匹配 |  |
 | 左列前端温度 | `intakeManifoldTemperatureLBF` | Intake Manifold Temperature LBF | `40371` | `1℃` | `°C` | 已匹配 |  |
@@ -263,8 +264,8 @@ GET /api/v1/vessels/{vesselId}/navigation
 
 | UI 参数 | 前端字段 | 主表 Signal Content | 地址/Bit | UI 单位 | 状态 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 燃油压力 | `engine.fuelPressure` | Fuel Pressure | `40287` | `bar` | 已匹配 | 当前代码仍写死 `7.6`，后端接入后应改为 `engine.fuelPressure` |
-| 滑油温度 | `engine.lubeOilTemp` | Oil Temperature | `40264` | `°C` | 已匹配 | 当前代码由冷却水温度 +8 推导，后端接入后应改为主表点位 |
+| 燃油压力 | `engine.fuelPressure` | `Fuel CMMSlivery Pressure` | `40287` | `bar` | 已匹配 | 前端已优先读取 Historical 原字段 |
+| 滑油温度 | `engine.lubeOilTemp` | `Lubricating Oil Temperature` | `40264` | `°C` | 已匹配 | 前端已优先读取 Historical 原字段 |
 | 冷却水温度 | `engine.coolantTemp` | Coolant Temperature | `40263` | `°C` | 已匹配 |  |
 | 排气温度 | `engine.exhaustTemp` | left/right exhaust temperature 或 16缸排温 | `40328` / `40329` / `40353-40368` | `°C` | 派生计算 | 建议后端返回左右排温平均值或 16缸平均值，并标明计算规则 |
 | 转速 | `engine.rpm` | Engine Speed | `40262` | `rpm` | 已匹配 |  |
@@ -287,7 +288,7 @@ GET /api/v1/vessels/{vesselId}/navigation
 | 运行状态 | `engine.status` | Genset Running | `40001.14` | boolean/status | 已匹配 | 后端可映射为 `running/standby/fault` |
 | 功率输出 | `engine.power` | 无 | 无 | `kW` | 主表未提供 | 需要发电机电功率点位或后端计算 |
 | 负载 | `engine.load` | 无 | 无 | `%` | 主表未提供 | 可由功率/额定功率计算 |
-| 油温 | `engine.lubeOilTemp` | Oil Temperature | `40264` | `°C` | 已匹配 | 当前 UI 部分仍用 coolantTemp，应调整 |
+| 油温 | `engine.lubeOilTemp` | `Lubricating Oil Temperature` | `40264` | `°C` | 已匹配 | 前端已改为优先显示滑油温度 |
 | 诊断状态 | `engine.status` + `alarms` | ALARM 区 bit 点位 | 多个 | status | 派生计算 | 根据后端状态/报警事件派生 |
 | TIMESTAMP NODE | `engines.timestamp` | 无 | 无 | ISO time | 接口元数据 | 后端 envelope/data 必须返回 `timestamp` |
 | Voltage | `engine.voltage` | 无 | 无 | `V` | 主表未提供 | 主表只有控制电源电压，不是发电机输出电压 |
@@ -336,8 +337,8 @@ GET /api/v1/vessels/{vesselId}/navigation
 | Pressure | `pressure` | 无 | 无 | 定义不清 | 需要明确是滑油压力、燃油压力还是其他压力 |
 | Lube Oil Press | `lubeOilPressure` | Oil Pressure | `40267` | 已匹配 | kPa 转 bar |
 | Coolant Temp | `coolantTemp` | Coolant Temperature | `40263` | 已匹配 |  |
-| Lube Oil Temp | `lubeOilTemp` | Oil Temperature | `40264` | 已匹配 |  |
-| Fuel Pressure | `fuelPressure` | Fuel Pressure | `40287` | 已匹配 | kPa 转 bar |
+| Lube Oil Temp | `lubeOilTemp` | `Lubricating Oil Temperature` | `40264` | 已匹配 |  |
+| Fuel Pressure | `fuelPressure` | `Fuel CMMSlivery Pressure` | `40287` | 已匹配 | 原表拼写保留 |
 | Fuel Temp | `fuelTemp` | Fuel temperature | `40288` | 已匹配 |  |
 | Engine Load | `load` | 无 | 无 | 主表未提供 | 可由功率/额定功率计算 |
 | Vessel Speed | `vesselSpeed` | 无 | 无 | 非主机主表参数 | 来自 GPS/NMEA |

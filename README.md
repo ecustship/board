@@ -9,6 +9,7 @@
 ```bash
 REACT_APP_API_BASE_URL=/api/v1
 REACT_APP_DATA_SOURCE=backend
+REACT_APP_DEMO_FLUCTUATION=true
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -16,6 +17,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 | --- | --- | --- |
 | `REACT_APP_API_BASE_URL` | `/api/v1` | 后端 API 基础地址。同域部署时使用 `/api/v1`；前后端分离部署时填写完整后端地址。 |
 | `REACT_APP_DATA_SOURCE` | `backend` | 数据源模式。正式联调和生产环境使用 `backend`；离线演示才使用 `mock`。 |
+| `REACT_APP_DEMO_FLUCTUATION` | `true` | 演示波动开关。`true` 时页面使用本地虚拟实时波动；正式后端联调时改为 `false`。 |
 | `REACT_APP_VESSEL_ID` | `MHM-TierIII-Demo` | 当前船舶 ID，前端会用它拼接 `/vessels/{vesselId}/...` 接口。 |
 
 同域部署示例：
@@ -23,6 +25,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```bash
 REACT_APP_API_BASE_URL=/api/v1
 REACT_APP_DATA_SOURCE=backend
+REACT_APP_DEMO_FLUCTUATION=true
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -31,6 +34,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```bash
 REACT_APP_API_BASE_URL=http://127.0.0.1:8080/api/v1
 REACT_APP_DATA_SOURCE=backend
+REACT_APP_DEMO_FLUCTUATION=false
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -38,6 +42,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 
 ```bash
 REACT_APP_DATA_SOURCE=mock
+REACT_APP_DEMO_FLUCTUATION=true
 ```
 
 ## 数据接口标准
@@ -46,13 +51,15 @@ REACT_APP_DATA_SOURCE=mock
 
 - [前后端分离 JSON/API 标准](docs/frontend-backend-json-api-standard.md)
 - [UI 参数主表映射清单](docs/page-parameter-master-table-mapping.md)
+- [Historical Information API 字段名标准](docs/historical-information-api-field-standard.md)
 
 其中 `UI 参数主表映射清单` 已包含：
 
-- 每个 UI 参数对应的后端接口字段，例如 `data.engines.{engineId}.rpm`。
+- 每个 UI 参数对应的前端内部字段，例如 `data.engines.{engineId}.rpm`。
+- 发动机/主机运行数据的后端正式字段名必须与 `副本Historical Information.xlsx` 表头完全一致，例如 `CMMS01_Lube Oil Press`、`CMMS01_Engine Speed`。
 - 对应的主表 `Signal Content`、`485 Address Code`、单位和换算规则。
 - 主表没有的参数说明，例如电功率、电流、功率因数、GPS、风速风向等。
-- 推断匹配项说明，例如 `Fuel Delivery Pressure` 暂映射到主表 `Fuel Pressure`。
+- 原表特殊字段说明，例如 `Fuel CMMSlivery Pressure`、`Exhaust Temp. CylinCMMSr`、`Lube Oil Filter Diferential Pressure` 按 Excel 原文保留。
 
 前端主要数据入口已集中在：
 

@@ -64,8 +64,8 @@ const EngineSystems = () => {
   const engines = [
     { id: "diesel1", label: t.dieselEngine1 },
     { id: "diesel2", label: t.dieselEngine2 },
-    { id: "diesel3", label: t.dieselEngine3 },
-    { id: "diesel4", label: t.dieselEngine4 },
+    { id: "aux1", label: t.dieselEngine3 },
+    { id: "aux2", label: t.dieselEngine4 },
   ];
 
   // Dynamic bottom metrics based on engine data
@@ -157,7 +157,7 @@ const EngineSystems = () => {
             </span>
             <div className="flex items-end justify-between mt-2">
               <div>
-                <span className="text-2xl font-bold text-[#0A0A0A]">{engineData[activeEngine]?.coolantTemp?.toFixed(1) || 0}</span>
+                <span className="text-2xl font-bold text-[#0A0A0A]">{(engineData[activeEngine]?.lubeOilTemp ?? engineData[activeEngine]?.coolantTemp ?? 0).toFixed(1)}</span>
                 <span className="text-xs text-gray-400 ml-0.5">°C</span>
               </div>
               <div className="flex items-center gap-1 text-green-500">
