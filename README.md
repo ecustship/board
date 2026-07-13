@@ -59,6 +59,8 @@ REACT_APP_DEMO_FLUCTUATION=true
 - [当前前端读取后端数据说明](docs/current-frontend-backend-data-reading-cn.md)
 - [岸端兼容接口前端读取流程与标准](docs/shore-compatible-frontend-api-flow-cn.md)
 - [后端后续需要修改的问题清单](docs/backend-required-changes-cn.md)
+- [后端细粒度权限改造需求](docs/backend-fine-grained-permission-change-request-cn.md)
+- [后端权限系统完整改造清单](docs/backend-complete-permission-rbac-change-request-cn.md)
 
 其中 `UI 参数主表映射清单` 已包含：
 

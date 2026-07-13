@@ -7,6 +7,7 @@ import { useFocusMode } from "./hooks/useFocusMode";
 import { useAuth } from "./hooks/useAuth";
 import DataStateOverlay from "./components/DataStateOverlay";
 import { getChineseApiError } from "./api/errorMessages";
+import { PERMISSIONS } from "./auth/permissions";
 
 const priorityRank = { critical: 4, high: 3, medium: 2, low: 1 };
 
@@ -17,10 +18,12 @@ const Alarms = () => {
   const { alarms, acknowledgeAlarm, resetAlarm, resource } = useAlarmsData(5000, language);
   const [actionError, setActionError] = useState("");
   const [actionId, setActionId] = useState(null);
-  const canWrite = hasPermission("alarm:write");
+  const canAck = hasPermission(PERMISSIONS.ALARM_EVENT_ACK);
+  const canReset = hasPermission(PERMISSIONS.ALARM_EVENT_RESET);
 
   const runAction = async (alarm) => {
-    if (!canWrite || actionId) return;
+    const permitted = alarm.acknowledged ? canReset : canAck;
+    if (!permitted || actionId) return;
     setActionError("");
     setActionId(alarm.id);
     try {
@@ -115,8 +118,8 @@ const Alarms = () => {
                       </div>
                       <button
                         onClick={() => runAction(alarm)}
-                        disabled={!canWrite || actionId === alarm.id}
-                        title={!canWrite ? (language === "zh" ? "当前账号没有告警写入权限" : "No alarm write permission") : ""}
+                        disabled={!(alarm.acknowledged ? canReset : canAck) || actionId === alarm.id}
+                        title={!(alarm.acknowledged ? canReset : canAck) ? (language === "zh" ? "当前账号没有对应报警操作权限" : "No alarm action permission") : ""}
                         className={`min-w-16 rounded-md px-2 py-1.5 text-[9px] font-bold uppercase disabled:cursor-not-allowed disabled:opacity-45 ${
                           urgent ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
                         }`}

@@ -17,6 +17,7 @@ import GlobalAlarmBanner from "./components/GlobalAlarmBanner";
 import LoginPage from "./components/LoginPage";
 import AccessManagement from "./components/AccessManagement";
 import ChangePasswordModal from "./components/ChangePasswordModal";
+import { PERMISSIONS } from "./auth/permissions";
 
 const AUTH_REQUIRED = (process.env.REACT_APP_AUTH_REQUIRED || "true").toLowerCase() === "true";
 
@@ -370,19 +371,19 @@ const InnerDashboard = () => {
 
   const navButtons = useMemo(
     () => [
-      { key: "main-engine", label: t.mainEngine, permission: "engine:read" },
-      { key: "engine-systems", label: t.engineSystems, permission: "engine:read" },
-      { key: "navigation", label: t.navigation },
-      { key: "alarms", label: t.alarms, permission: "alarm:read" },
-      { key: "trend", label: t.trend, permission: "trend:read" },
-      { key: "nautical-charts", label: t.nauticalCharts },
-      { key: "config", label: t.configParameters, permission: "ingest:write" },
+      { key: "main-engine", label: t.mainEngine, permission: PERMISSIONS.ENGINE_MAIN_READ },
+      { key: "engine-systems", label: t.engineSystems, permission: PERMISSIONS.ENGINE_SYSTEM_READ },
+      { key: "navigation", label: t.navigation, permission: PERMISSIONS.NAVIGATION_READ },
+      { key: "alarms", label: t.alarms, permission: PERMISSIONS.ALARM_EVENT_READ },
+      { key: "trend", label: t.trend, permission: PERMISSIONS.TREND_READ },
+      { key: "nautical-charts", label: t.nauticalCharts, permission: PERMISSIONS.CHART_READ },
+      { key: "config", label: t.configParameters, permission: PERMISSIONS.CONFIG_POINT_TABLE_READ },
     ].filter((item) => !item.permission || hasPermission(item.permission)),
     [hasPermission, t]
   );
 
   useEffect(() => {
-    if (activeView === "access-management" && !hasPermission("user:read")) {
+    if (activeView === "access-management" && !hasPermission(PERMISSIONS.USER_READ)) {
       setActiveView(navButtons[0]?.key || "navigation");
       return;
     }
@@ -479,7 +480,7 @@ const InnerDashboard = () => {
           onLogout={logout}
           onChangePassword={() => setPasswordOpen(true)}
           onAccessManagement={() => setActiveView("access-management")}
-          canManageAccess={hasPermission("user:read")}
+          canManageAccess={hasPermission(PERMISSIONS.USER_READ)}
         />
         <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onChanged={logout} />
         <GlobalAlarmBanner />

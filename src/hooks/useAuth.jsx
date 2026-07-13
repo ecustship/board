@@ -10,6 +10,7 @@ import {
   saveAuthSession,
   updateStoredUser,
 } from "../api/authSession";
+import { expandPermissions } from "../auth/permissions";
 
 const AuthContext = createContext(null);
 
@@ -96,20 +97,25 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(
-    () => ({
-      session,
-      token: session?.accessToken || "",
-      user: session?.user || null,
-      isAuthenticated: Boolean(session?.accessToken),
-      status,
-      error,
-      permissions: session?.user?.permissions || [],
-      hasPermission: (permission) => Boolean(session?.user?.permissions?.includes(permission)),
-      hasAnyPermission: (permissions) => permissions.some((permission) => session?.user?.permissions?.includes(permission)),
-      login,
-      logout,
-      refreshUser,
-    }),
+    () => {
+      const rawPermissions = session?.user?.permissions || [];
+      const permissions = expandPermissions(rawPermissions);
+      return {
+        session,
+        token: session?.accessToken || "",
+        user: session?.user || null,
+        isAuthenticated: Boolean(session?.accessToken),
+        status,
+        error,
+        rawPermissions,
+        permissions,
+        hasPermission: (permission) => Boolean(permissions.includes(permission)),
+        hasAnyPermission: (requiredPermissions) => requiredPermissions.some((permission) => permissions.includes(permission)),
+        login,
+        logout,
+        refreshUser,
+      };
+    },
     [error, login, logout, refreshUser, session, status]
   );
 

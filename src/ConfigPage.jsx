@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { useLanguage } from "./hooks/useLanguage";
 import { useFullscreen } from "./hooks/useFullscreen";
 import { useUnitSystem } from "./hooks/useUnitSystem";
+import { useAuth } from "./hooks/useAuth";
+import { PERMISSIONS } from "./auth/permissions";
 
 const DEFAULT_MODBUS_CONFIG = {
   protocol: "MODBUS_RTU",
@@ -431,6 +433,7 @@ const runtimePointToSignalRow = (point, index) => ({
 
 const ConfigPage = () => {
   const { t, language, setLanguage } = useLanguage();
+  const { hasPermission } = useAuth();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const importInputRef = useRef(null);
@@ -456,6 +459,13 @@ const ConfigPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState(new Date());
   const isZh = language === "zh";
+  const canUpdatePointTable = hasPermission(PERMISSIONS.CONFIG_POINT_TABLE_UPDATE);
+  const canImportPointTable = hasPermission(PERMISSIONS.CONFIG_POINT_TABLE_IMPORT);
+  const canExportPointTable = hasPermission(PERMISSIONS.CONFIG_POINT_TABLE_EXPORT);
+  const canValidatePointTable = hasPermission(PERMISSIONS.CONFIG_POINT_TABLE_VALIDATE);
+  const canApplyPointTable = hasPermission(PERMISSIONS.CONFIG_POINT_TABLE_APPLY);
+  const canRollbackPointTable = hasPermission(PERMISSIONS.CONFIG_POINT_TABLE_ROLLBACK);
+  const disabledTitle = isZh ? "当前账号没有该操作权限" : "Current account has no permission for this action";
 
   const sections = [
     { id: "display", label: t.displaySettings, icon: "palette" },
@@ -473,6 +483,7 @@ const ConfigPage = () => {
   };
 
   const handlePointTest = () => {
+    if (!canValidatePointTable) return;
     setTestResult({
       success: true,
       pointCode: selectedSignal.pointCode,
@@ -485,6 +496,7 @@ const ConfigPage = () => {
   };
 
   const handleValidateTable = () => {
+    if (!canValidatePointTable) return;
     setPointTableStatus("validating");
     setTimeout(() => {
       setPointTableStatus("validated");
@@ -493,11 +505,13 @@ const ConfigPage = () => {
   };
 
   const handleApplyVersion = () => {
+    if (!canApplyPointTable) return;
     setPointTableStatus("applying");
     setTimeout(() => setPointTableStatus("active"), 900);
   };
 
   const handleExportRuntimeCsv = () => {
+    if (!canExportPointTable) return;
     const runtimeRows = [
       ...pointRows.filter((point) => point.enabled).map(toRuntimeRow),
       ...DEFAULT_ALARM_ROWS.filter((alarm) => alarm.enabled).map(toRuntimeRow),
@@ -547,6 +561,10 @@ const ConfigPage = () => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    if (!canImportPointTable) {
+      setImportMessage({ type: "error", text: disabledTitle });
+      return;
+    }
 
     const lowerName = file.name.toLowerCase();
 
@@ -782,19 +800,21 @@ const ConfigPage = () => {
                     onChange={handleImportFile}
                   />
                   {[
-                    { label: isZh ? "导入 Excel" : "Import Excel", icon: "upload_file", onClick: () => importInputRef.current?.click() },
-                    { label: isZh ? "导出运行点表" : "Export Runtime CSV", icon: "download", onClick: handleExportRuntimeCsv },
-                    { label: isZh ? "整表校验" : "Validate Table", icon: "fact_check", onClick: handleValidateTable },
-                    { label: isZh ? "保存并应用" : "Save & Apply", icon: "save", onClick: handleApplyVersion },
+                    { label: isZh ? "导入 Excel" : "Import Excel", icon: "upload_file", onClick: () => importInputRef.current?.click(), enabled: canImportPointTable },
+                    { label: isZh ? "导出运行点表" : "Export Runtime CSV", icon: "download", onClick: handleExportRuntimeCsv, enabled: canExportPointTable },
+                    { label: isZh ? "整表校验" : "Validate Table", icon: "fact_check", onClick: handleValidateTable, enabled: canValidatePointTable },
+                    { label: isZh ? "保存并应用" : "Save & Apply", icon: "save", onClick: handleApplyVersion, enabled: canApplyPointTable },
                   ].map((action) => (
                     <button
                       key={action.label}
                       onClick={action.onClick}
+                      disabled={!action.enabled}
+                      title={!action.enabled ? disabledTitle : ""}
                       className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
                         action.icon === "save"
                           ? "bg-[#4cd7d0] text-[#00201e] hover:bg-[#3bc4bc]"
                           : "border border-gray-200 bg-gray-50 text-gray-600 hover:border-[#4cd7d0]/60 hover:bg-[#f0fffe]"
-                      }`}
+                      } disabled:cursor-not-allowed disabled:opacity-40`}
                     >
                       <span className="material-symbols-outlined text-sm">{action.icon}</span>
                       {action.label}
@@ -963,10 +983,10 @@ const ConfigPage = () => {
                           className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-[#4cd7d0]"
                         />
                       </div>
-                      <button className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-600">
+                      <button disabled={!canUpdatePointTable} title={!canUpdatePointTable ? disabledTitle : ""} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-600 disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "新增点位" : "Add Point"}
                       </button>
-                      <button className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-600">
+                      <button disabled={!canUpdatePointTable} title={!canUpdatePointTable ? disabledTitle : ""} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-600 disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "批量编辑" : "Batch Edit"}
                       </button>
                     </div>
@@ -1022,10 +1042,10 @@ const ConfigPage = () => {
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-700">{selectedSignal.pointType}</span>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button onClick={handlePointTest} className="rounded-lg bg-[#4cd7d0] px-3 py-2 text-xs font-black uppercase text-[#00201e]">
+                      <button onClick={handlePointTest} disabled={!canValidatePointTable} title={!canValidatePointTable ? disabledTitle : ""} className="rounded-lg bg-[#4cd7d0] px-3 py-2 text-xs font-black uppercase text-[#00201e] disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "单点测试" : "Point Test"}
                       </button>
-                      <button className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-black uppercase text-gray-600">
+                      <button disabled={!canUpdatePointTable} title={!canUpdatePointTable ? disabledTitle : ""} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-black uppercase text-gray-600 disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "停用点位" : "Disable"}
                       </button>
                     </div>
@@ -1183,13 +1203,13 @@ const ConfigPage = () => {
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                      <button onClick={handleValidateTable} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700">
+                      <button onClick={handleValidateTable} disabled={!canValidatePointTable} title={!canValidatePointTable ? disabledTitle : ""} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700 disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "整表校验" : "Validate"}
                       </button>
-                      <button onClick={handleApplyVersion} className="rounded-lg bg-[#4cd7d0] px-3 py-2 text-xs font-black uppercase text-[#00201e]">
+                      <button onClick={handleApplyVersion} disabled={!canApplyPointTable} title={!canApplyPointTable ? disabledTitle : ""} className="rounded-lg bg-[#4cd7d0] px-3 py-2 text-xs font-black uppercase text-[#00201e] disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "应用版本" : "Apply"}
                       </button>
-                      <button onClick={() => setPointTableStatus("rolled_back")} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700">
+                      <button onClick={() => canRollbackPointTable && setPointTableStatus("rolled_back")} disabled={!canRollbackPointTable} title={!canRollbackPointTable ? disabledTitle : ""} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-black uppercase text-gray-700 disabled:cursor-not-allowed disabled:opacity-40">
                         {isZh ? "回滚" : "Rollback"}
                       </button>
                     </div>
