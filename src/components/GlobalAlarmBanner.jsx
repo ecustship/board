@@ -37,7 +37,7 @@ const playAlarmTone = () => {
 const GlobalAlarmBanner = () => {
   const { language } = useLanguage();
   const { focusMode, alarmMuted, toggleFocusMode } = useFocusMode();
-  const { alarms } = useAlarmsData(5000, language);
+  const { alarms, resource } = useAlarmsData(5000, language);
   const previousCountRef = useRef(0);
 
   const activeAlarms = useMemo(
@@ -64,6 +64,14 @@ const GlobalAlarmBanner = () => {
     }
     previousCountRef.current = activeAlarms.length;
   }, [activeAlarms.length, alarmMuted]);
+
+  if (resource.status === "error") {
+    return (
+      <div className="mx-auto mt-2 w-[calc(100%-2rem)] max-w-[1400px] shrink-0 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800">
+        {language === "zh" ? "告警接口连接失败，当前报警状态不可用。" : "Alarm service unavailable. Current alarm state is unknown."}
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence>

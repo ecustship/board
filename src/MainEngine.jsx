@@ -4,6 +4,7 @@ import { EngineModel } from "./YachtModel";
 import { useEngineData, useAlarmsData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
 import { useUnitSystem } from "./hooks/useUnitSystem";
+import DataStateOverlay from "./components/DataStateOverlay";
 
 const MainEngine = () => {
   const { t, language } = useLanguage();
@@ -11,7 +12,7 @@ const MainEngine = () => {
   const [activeEngine, setActiveEngine] = useState("diesel1");
   const [autoRotate, setAutoRotate] = useState(true);
   const engines = useEngineData(2000);
-  const { alarms } = useAlarmsData(5000, language);
+  const { alarms, resource: alarmsResource } = useAlarmsData(5000, language);
   const engine = engines[activeEngine];
   const fuelPressure = engine?.fuelPressure ?? engine?.fuelDeliveryPressure ?? 7.6;
   const oilTemp = engine?.lubeOilTemp ?? engine?.lubricatingOilTemperature ?? (engine?.coolantTemp || 75) + 8;
@@ -43,7 +44,8 @@ const MainEngine = () => {
   ];
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden px-4 pb-4 pt-2 bg-[#F5F6F8] dark:bg-background" style={{ minHeight: 0 }}>
+    <div className="relative flex flex-col flex-1 overflow-hidden px-4 pb-4 pt-2 bg-[#F5F6F8] dark:bg-background" style={{ minHeight: 0 }}>
+      <DataStateOverlay resources={[engines.__resource, alarmsResource]} label={language === "zh" ? "主机数据" : "engine data"} />
       {/* Main Content Row */}
       <main className="flex flex-row flex-1 gap-4 relative items-stretch" style={{ minHeight: 0 }}>
         {/* Left: Engine Selection Buttons */}

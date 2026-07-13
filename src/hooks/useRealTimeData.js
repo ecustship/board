@@ -20,9 +20,11 @@ const USE_BACKEND_API = USE_BACKEND && !USE_DEMO_FLUCTUATION;
 const USE_LOCAL_DEMO_DATA = !USE_BACKEND_API;
 const DEFAULT_VESSEL_ID = process.env.REACT_APP_VESSEL_ID || DEFAULT_API_CONTEXT.vesselId;
 const BACKEND_READY_ENDPOINTS = new Set([
+  API_ENDPOINTS.vessel,
   API_ENDPOINTS.engines,
   API_ENDPOINTS.alarms,
   API_ENDPOINTS.acknowledgeAlarm,
+  API_ENDPOINTS.systemStatus,
   API_ENDPOINTS.trend,
 ]);
 const pendingBackendRoute = (data, endpoint) => ({
@@ -294,6 +296,23 @@ const initialSystemStatus = {
   },
 };
 
+const emptyValue = (value) => {
+  if (typeof value === "number") return 0;
+  if (typeof value === "boolean") return false;
+  if (typeof value === "string") return "";
+  if (Array.isArray(value)) return value.map(emptyValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, emptyValue(item)]));
+  }
+  return value;
+};
+
+const emptyVesselData = { ...emptyValue(initialVesselData), quality: "UNKNOWN", source: "" };
+const emptyEngineData = Object.fromEntries(
+  Object.entries(initialEngineData).map(([key, engine]) => [key, { ...emptyValue(engine), status: "unknown", alerts: [] }])
+);
+const emptySystemStatus = emptyValue(initialSystemStatus);
+
 const ALARMS_QUERY = { includeHistory: true };
 const ENGINE_META_KEYS = new Set(["timestamp", "quality", "source"]);
 
@@ -352,42 +371,43 @@ const readHistoricalBoolean = (source, prefix, suffix, fallback, aliases = []) =
 
 const normalizeVesselData = (data) => {
   const source = data || {};
+  const fallback = USE_BACKEND_API ? emptyVesselData : initialVesselData;
   const position = source.position || {};
   const wind = source.wind || {};
   const draft = source.draft || {};
 
   return {
-    ...initialVesselData,
+    ...fallback,
     ...source,
     timestamp: source.timestamp,
     quality: source.quality,
     source: source.source,
     position: {
-      ...initialVesselData.position,
+      ...fallback.position,
       ...position,
-      lat: readValue(position.lat, initialVesselData.position.lat),
-      lon: readValue(position.lon, initialVesselData.position.lon),
+      lat: readValue(position.lat, fallback.position.lat),
+      lon: readValue(position.lon, fallback.position.lon),
     },
-    heading: readValue(source.heading, initialVesselData.heading),
-    pitch: readValue(source.pitch, initialVesselData.pitch),
+    heading: readValue(source.heading, fallback.heading),
+    pitch: readValue(source.pitch, fallback.pitch),
     roll: readValue(source.roll, source.draft?.fore ?? 0),
-    cog: readValue(source.cog, initialVesselData.cog),
-    sog: readValue(source.sog, initialVesselData.sog),
+    cog: readValue(source.cog, fallback.cog),
+    sog: readValue(source.sog, fallback.sog),
     wind: {
-      ...initialVesselData.wind,
+      ...fallback.wind,
       ...wind,
-      speed: readValue(wind.speed, initialVesselData.wind.speed),
-      direction: readValue(wind.direction, initialVesselData.wind.direction),
+      speed: readValue(wind.speed, fallback.wind.speed),
+      direction: readValue(wind.direction, fallback.wind.direction),
     },
     draft: {
-      ...initialVesselData.draft,
+      ...fallback.draft,
       ...draft,
-      fore: readValue(draft.fore, initialVesselData.draft.fore),
-      aft: readValue(draft.aft, initialVesselData.draft.aft),
+      fore: readValue(draft.fore, fallback.draft.fore),
+      aft: readValue(draft.aft, fallback.draft.aft),
     },
-    fuelConsumption: readValue(source.fuelConsumption, initialVesselData.fuelConsumption),
-    temperature: readValue(source.temperature, initialVesselData.temperature),
-    humidity: readValue(source.humidity, initialVesselData.humidity),
+    fuelConsumption: readValue(source.fuelConsumption, fallback.fuelConsumption),
+    temperature: readValue(source.temperature, fallback.temperature),
+    humidity: readValue(source.humidity, fallback.humidity),
   };
 };
 
@@ -681,7 +701,7 @@ const normalizeEngineData = (data) => {
       source[key] ||
       source[historicalPrefix] ||
       (hasHistoricalEngineFields(source, historicalPrefix) ? source : {});
-    acc[key] = normalizeEngine(sourceEngine, initialEngineData[key], historicalPrefix);
+    acc[key] = normalizeEngine(sourceEngine, USE_BACKEND_API ? emptyEngineData[key] : initialEngineData[key], historicalPrefix);
     return acc;
   }, {});
 
@@ -692,7 +712,7 @@ const normalizeEngineData = (data) => {
     .filter((key) => source[key] && typeof source[key] === "object")
     .forEach((key) => {
       const historicalPrefix = ENGINE_ID_TO_HISTORICAL_PREFIX[key] || "CMMS01";
-      normalized[key] = normalizeEngine(source[key], initialEngineData[key] || {}, historicalPrefix);
+      normalized[key] = normalizeEngine(source[key], (USE_BACKEND_API ? emptyEngineData[key] : initialEngineData[key]) || {}, historicalPrefix);
     });
 
   return {
@@ -735,8 +755,8 @@ const normalizeAlarm = (alarm) => ({
   type: alarm.type || alarm.level || "info",
   priority: alarm.priority || alarm.severity || "low",
   message: alarm.message || alarm.displayNameZh || alarm.pointName || alarm.pointCode || "",
-  acknowledged: Boolean(alarm.acknowledged),
-  resolved: Boolean(alarm.resolved),
+  acknowledged: Boolean(alarm.acknowledged || alarm.ackAt || alarm.status === "ACKNOWLEDGED"),
+  resolved: Boolean(alarm.resolved || alarm.resetAt || alarm.status === "RESET"),
   resolvedTime: alarm.resolvedTime || alarm.resolvedAt,
 });
 
@@ -750,10 +770,10 @@ const normalizeAlarmsData = (data) => {
 };
 
 const normalizeSystemStatus = (data) => ({
-  ...initialSystemStatus,
+  ...(USE_BACKEND_API ? emptySystemStatus : initialSystemStatus),
   ...(data || {}),
   sensors: {
-    ...initialSystemStatus.sensors,
+    ...(USE_BACKEND_API ? emptySystemStatus.sensors : initialSystemStatus.sensors),
     ...(data?.sensors || {}),
   },
 });
@@ -815,11 +835,20 @@ const useBackendResource = (endpoint, intervalMs, initialData, transform, option
   return useApiResource(endpointReady ? buildApiPath(endpoint, { vesselId: DEFAULT_VESSEL_ID }) : "", {
     enabled: USE_BACKEND_API && endpointReady && enabled,
     intervalMs,
-    initialData,
+    initialData: USE_BACKEND_API ? null : initialData,
     transform,
     ...resourceOptions,
   });
 };
+
+const resourceState = (resource) => ({
+  status: resource.status,
+  loading: resource.loading,
+  refreshing: resource.refreshing,
+  online: resource.online,
+  error: resource.error?.message || "",
+  reload: resource.reload,
+});
 
 // 添加平滑滤波处理
 const applySmoothing = (currentValue, newValue, filterCoefficient) => {
@@ -883,7 +912,9 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, smoothingFilter]);
 
-  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(initialVesselData, API_ENDPOINTS.vessel) : data;
+  return USE_BACKEND_API
+    ? { ...(backendResource.data || pendingBackendRoute(emptyVesselData, API_ENDPOINTS.vessel)), __resource: resourceState(backendResource) }
+    : data;
 };
 
 // 自定义钩子：实时引擎数据
@@ -1008,7 +1039,9 @@ export const useEngineData = (updateInterval = 2000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, lubeOilPressureLowLimit, rpmHighAlertLimit]);
 
-  return USE_BACKEND_API ? backendResource.data || initialEngineData : engines;
+  return USE_BACKEND_API
+    ? { ...(backendResource.data || emptyEngineData), __resource: resourceState(backendResource) }
+    : engines;
 };
 
 // 自定义钩子：实时导航数据
@@ -1121,7 +1154,7 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
     [localizeSource, localizeMessage]
   );
 
-  const alarmSource = USE_BACKEND_API ? backendResource.data || initialAlarmsData : alarms;
+  const alarmSource = USE_BACKEND_API ? backendResource.data || { active: [], history: [] } : alarms;
 
   // expose localized alarms to consumers
   const localizedAlarms = {
@@ -1193,6 +1226,7 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
           next.delete(id);
           return next;
         });
+        throw error;
       }
       return;
     }
@@ -1205,7 +1239,18 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
     }));
   }, []);
 
-  return { alarms: localizedAlarms, acknowledgeAlarm };
+  const resetAlarm = useCallback(async (id) => {
+    if (!USE_BACKEND_API) return;
+    await apiRequest(buildApiPath(API_ENDPOINTS.resetAlarm, { alarmId: id }), { method: "POST" });
+    await backendResource.reload();
+  }, [backendResource]);
+
+  return {
+    alarms: localizedAlarms,
+    acknowledgeAlarm,
+    resetAlarm,
+    resource: USE_BACKEND_API ? resourceState(backendResource) : { status: "success", online: true },
+  };
 };
 
 // 自定义钩子：系统状态
@@ -1234,7 +1279,9 @@ export const useSystemStatus = (updateInterval = 1500) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(initialSystemStatus, API_ENDPOINTS.systemStatus) : status;
+  return USE_BACKEND_API
+    ? { ...(backendResource.data || pendingBackendRoute(emptySystemStatus, API_ENDPOINTS.systemStatus)), __resource: resourceState(backendResource) }
+    : status;
 };
 
 // 生成图表数据

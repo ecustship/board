@@ -3,18 +3,36 @@ import { apiRequest } from "../api/client";
 import { API_ENDPOINTS } from "../api/contracts";
 import {
   AUTH_CHANGED_EVENT,
+  AUTH_FORBIDDEN_EVENT,
   AUTH_SESSION_KEY,
   clearAuthSession,
   getStoredAuth,
   saveAuthSession,
+  updateStoredUser,
 } from "../api/authSession";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(() => getStoredAuth());
-  const [status, setStatus] = useState(session ? "authenticated" : "anonymous");
+  const [status, setStatus] = useState(session ? "validating" : "anonymous");
   const [error, setError] = useState(null);
+
+  const refreshUser = useCallback(async () => {
+    if (!getStoredAuth()?.accessToken) return null;
+    try {
+      const envelope = await apiRequest(API_ENDPOINTS.me);
+      const nextSession = updateStoredUser(envelope.data);
+      setSession(nextSession);
+      setStatus("authenticated");
+      setError(null);
+      return envelope.data;
+    } catch (refreshError) {
+      setError(refreshError);
+      if (refreshError?.status !== 401) setStatus("authenticated");
+      throw refreshError;
+    }
+  }, []);
 
   useEffect(() => {
     const syncSession = () => {
@@ -26,14 +44,20 @@ export const AuthProvider = ({ children }) => {
       if (event.key === AUTH_SESSION_KEY) syncSession();
     };
     const handleAuthChange = () => syncSession();
+    const handleForbidden = () => {
+      refreshUser().catch(() => {});
+    };
 
     window.addEventListener("storage", handleStorage);
     window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+    window.addEventListener(AUTH_FORBIDDEN_EVENT, handleForbidden);
+    if (getStoredAuth()?.accessToken) refreshUser().catch(() => {});
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+      window.removeEventListener(AUTH_FORBIDDEN_EVENT, handleForbidden);
     };
-  }, []);
+  }, [refreshUser]);
 
   const login = useCallback(async ({ username, password }) => {
     setStatus("authenticating");
@@ -79,10 +103,14 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: Boolean(session?.accessToken),
       status,
       error,
+      permissions: session?.user?.permissions || [],
+      hasPermission: (permission) => Boolean(session?.user?.permissions?.includes(permission)),
+      hasAnyPermission: (permissions) => permissions.some((permission) => session?.user?.permissions?.includes(permission)),
       login,
       logout,
+      refreshUser,
     }),
-    [error, login, logout, session, status]
+    [error, login, logout, refreshUser, session, status]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

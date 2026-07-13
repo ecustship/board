@@ -15,7 +15,7 @@ const text = {
     signIn: "Sign In",
     signingIn: "Signing In",
     backend: "Backend API",
-    demoAccount: "Default accounts: admin/admin123, viewer/viewer123",
+    demoAccount: "Default accounts: admin, operator, viewer",
     required: "Username and password are required.",
     failed: "Login failed. Check the account or backend service.",
   },
@@ -29,7 +29,7 @@ const text = {
     signIn: "登录",
     signingIn: "登录中",
     backend: "后端接口",
-    demoAccount: "默认账号：admin/admin123，viewer/viewer123",
+    demoAccount: "默认账号：admin、operator、viewer",
     required: "请输入用户名和密码。",
     failed: "登录失败，请检查账号或后端服务。",
   },
@@ -61,7 +61,7 @@ const LoginPage = () => {
   };
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#edf2f4] px-4 py-8 text-[#1A1B1F] dark:bg-background dark:text-on-background">
+    <main className="flex h-[100dvh] items-start justify-center overflow-y-auto bg-[#edf2f4] px-4 py-8 text-[#1A1B1F] dark:bg-background dark:text-on-background md:items-center">
       <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_0.7px,transparent_0.7px)] [background-size:22px_22px] opacity-40" />
       <motion.section
         initial={{ opacity: 0, y: 18 }}
@@ -71,7 +71,9 @@ const LoginPage = () => {
       >
         <div className="flex min-h-[520px] flex-col justify-between bg-[#121417] p-8 text-white">
           <div>
-            <img src="/image/logo.png" alt="Logo" className="h-11 w-auto object-contain" />
+            <span className="inline-flex rounded bg-white px-2 py-1">
+              <img src="/image/logo.png" alt="Logo" className="h-9 w-auto object-contain" />
+            </span>
           </div>
 
           <div className="max-w-md">

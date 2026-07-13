@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MainEngine from "./MainEngine";
 import NauticalCharts from "./NauticalCharts";
@@ -15,6 +15,10 @@ import { FocusModeProvider, useFocusMode } from "./hooks/useFocusMode";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import GlobalAlarmBanner from "./components/GlobalAlarmBanner";
 import LoginPage from "./components/LoginPage";
+import AccessManagement from "./components/AccessManagement";
+import ChangePasswordModal from "./components/ChangePasswordModal";
+
+const AUTH_REQUIRED = (process.env.REACT_APP_AUTH_REQUIRED || "true").toLowerCase() === "true";
 
 // Search Modal Component
 const SearchModal = ({ isOpen, onClose }) => {
@@ -260,7 +264,7 @@ const SettingsModal = ({ isOpen, onClose, theme, setTheme }) => {
 };
 
 // Account Modal Component
-const AccountModal = ({ isOpen, onClose, user, onLogout }) => {
+const AccountModal = ({ isOpen, onClose, user, onLogout, onChangePassword, onAccessManagement, canManageAccess }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
 
@@ -303,18 +307,16 @@ const AccountModal = ({ isOpen, onClose, user, onLogout }) => {
 
           {/* Menu Items */}
           <div className="p-4 space-y-2">
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <span className="material-symbols-outlined text-[#4CD7D0]">person</span>
-              <span className="text-gray-700 dark:text-gray-300 font-medium">{t.profile}</span>
+            <button onClick={() => { onClose(); onChangePassword(); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              <span className="material-symbols-outlined text-[#4CD7D0]">key</span>
+              <span className="text-gray-700 dark:text-gray-300 font-medium">修改密码</span>
             </button>
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <span className="material-symbols-outlined text-[#4CD7D0]">history</span>
-              <span className="text-gray-700 dark:text-gray-300 font-medium">Activity Log</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <span className="material-symbols-outlined text-[#4CD7D0]">help</span>
-              <span className="text-gray-700 dark:text-gray-300 font-medium">Help & Support</span>
-            </button>
+            {canManageAccess && (
+              <button onClick={() => { onClose(); onAccessManagement(); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <span className="material-symbols-outlined text-[#4CD7D0]">admin_panel_settings</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">用户与权限管理</span>
+              </button>
+            )}
             <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
             <button
               onClick={() => {
@@ -336,7 +338,7 @@ const AccountModal = ({ isOpen, onClose, user, onLogout }) => {
 const InnerDashboard = () => {
   const { t, language } = useLanguage();
   const { focusMode, toggleFocusMode } = useFocusMode();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const [theme, setTheme] = useState("system");
 
   useEffect(() => {
@@ -351,6 +353,7 @@ const InnerDashboard = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // Keyboard shortcut for fullscreen (F11)
@@ -365,15 +368,28 @@ const InnerDashboard = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleFullscreen]);
 
-  const navButtons = [
-    { key: "main-engine", label: t.mainEngine },
-    { key: "engine-systems", label: t.engineSystems },
-    { key: "navigation", label: t.navigation },
-    { key: "alarms", label: t.alarms },
-    { key: "trend", label: t.trend },
-    { key: "nautical-charts", label: t.nauticalCharts },
-    { key: "config", label: t.configParameters },
-  ];
+  const navButtons = useMemo(
+    () => [
+      { key: "main-engine", label: t.mainEngine, permission: "engine:read" },
+      { key: "engine-systems", label: t.engineSystems, permission: "engine:read" },
+      { key: "navigation", label: t.navigation },
+      { key: "alarms", label: t.alarms, permission: "alarm:read" },
+      { key: "trend", label: t.trend, permission: "trend:read" },
+      { key: "nautical-charts", label: t.nauticalCharts },
+      { key: "config", label: t.configParameters, permission: "ingest:write" },
+    ].filter((item) => !item.permission || hasPermission(item.permission)),
+    [hasPermission, t]
+  );
+
+  useEffect(() => {
+    if (activeView === "access-management" && !hasPermission("user:read")) {
+      setActiveView(navButtons[0]?.key || "navigation");
+      return;
+    }
+    if (activeView !== "access-management" && !navButtons.some((item) => item.key === activeView)) {
+      setActiveView(navButtons[0]?.key || "navigation");
+    }
+  }, [activeView, hasPermission, navButtons]);
 
   return (
     <div className="h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden bg-[#F1F3F5] bg-[radial-gradient(#d1d5db_0.5px,transparent_0.5px)] [background-size:24px_24px] dark:bg-grid font-body">
@@ -461,11 +477,17 @@ const InnerDashboard = () => {
           onClose={() => setAccountOpen(false)}
           user={user}
           onLogout={logout}
+          onChangePassword={() => setPasswordOpen(true)}
+          onAccessManagement={() => setActiveView("access-management")}
+          canManageAccess={hasPermission("user:read")}
         />
+        <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onChanged={logout} />
         <GlobalAlarmBanner />
 
         {/* Main Content */}
-        {activeView === "main-engine" ? (
+        {activeView === "access-management" ? (
+          <AccessManagement onExit={() => setActiveView("navigation")} />
+        ) : activeView === "main-engine" ? (
           <MainEngine />
         ) : activeView === "nautical-charts" ? (
           <NauticalCharts />
@@ -493,9 +515,13 @@ const InnerDashboard = () => {
 };
 
 const AuthenticatedDashboard = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, status } = useAuth();
 
-  if (!isAuthenticated) {
+  if (AUTH_REQUIRED && status === "validating") {
+    return <div className="flex h-[100dvh] items-center justify-center bg-[#f1f3f5] text-sm font-bold text-slate-500">正在验证登录状态...</div>;
+  }
+
+  if (AUTH_REQUIRED && !isAuthenticated) {
     return <LoginPage />;
   }
 

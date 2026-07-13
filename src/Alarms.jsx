@@ -1,16 +1,37 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Bell, BellOff, CheckCircle2 } from "lucide-react";
 import { useAlarmsData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
 import { useFocusMode } from "./hooks/useFocusMode";
+import { useAuth } from "./hooks/useAuth";
+import DataStateOverlay from "./components/DataStateOverlay";
+import { getChineseApiError } from "./api/errorMessages";
 
 const priorityRank = { critical: 4, high: 3, medium: 2, low: 1 };
 
 const Alarms = () => {
   const { t, language } = useLanguage();
   const { focusMode, toggleFocusMode } = useFocusMode();
-  const { alarms, acknowledgeAlarm } = useAlarmsData(5000, language);
+  const { hasPermission } = useAuth();
+  const { alarms, acknowledgeAlarm, resetAlarm, resource } = useAlarmsData(5000, language);
+  const [actionError, setActionError] = useState("");
+  const [actionId, setActionId] = useState(null);
+  const canWrite = hasPermission("alarm:write");
+
+  const runAction = async (alarm) => {
+    if (!canWrite || actionId) return;
+    setActionError("");
+    setActionId(alarm.id);
+    try {
+      if (alarm.acknowledged) await resetAlarm(alarm.id);
+      else await acknowledgeAlarm(alarm.id);
+    } catch (error) {
+      setActionError(getChineseApiError(error, "告警状态更新失败"));
+    } finally {
+      setActionId(null);
+    }
+  };
 
   const sortedAlarms = useMemo(
     () =>
@@ -24,7 +45,8 @@ const Alarms = () => {
   const pendingCount = sortedAlarms.filter((alarm) => !alarm.acknowledged).length;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-4 pb-4 pt-2 bg-[#F5F6F8] dark:bg-background">
+    <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden px-4 pb-4 pt-2 bg-[#F5F6F8] dark:bg-background">
+      <DataStateOverlay resources={resource} label={language === "zh" ? "告警数据" : "alarm data"} />
       <div className="grid min-h-0 flex-1 grid-cols-[1fr_320px] gap-4">
         <section className="flex min-h-0 flex-col rounded-2xl bg-white p-5 shadow-sm dark:bg-surface-container-lowest">
           <div className="mb-4 flex items-center justify-between">
@@ -62,6 +84,8 @@ const Alarms = () => {
             ))}
           </div>
 
+          {actionError && <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{actionError}</div>}
+
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-white/10 dark:bg-surface-container-low">
             {sortedAlarms.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-green-600">
@@ -73,12 +97,11 @@ const Alarms = () => {
                 {sortedAlarms.map((alarm, idx) => {
                   const urgent = alarm.priority === "critical" || alarm.priority === "high";
                   return (
-                    <motion.button
+                    <motion.div
                       key={alarm.id}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.03 }}
-                      onClick={() => acknowledgeAlarm(alarm.id)}
                       className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                         urgent
                           ? "border-red-200 bg-red-50 hover:bg-red-100"
@@ -90,12 +113,17 @@ const Alarms = () => {
                         <div className="truncate text-sm font-bold text-slate-800">{alarm.message}</div>
                         <div className="text-[11px] text-slate-500">{alarm.source} / {alarm.time}</div>
                       </div>
-                      <span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${
-                        urgent ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
-                      }`}>
-                        {alarm.acknowledged ? "ACK" : alarm.priority}
-                      </span>
-                    </motion.button>
+                      <button
+                        onClick={() => runAction(alarm)}
+                        disabled={!canWrite || actionId === alarm.id}
+                        title={!canWrite ? (language === "zh" ? "当前账号没有告警写入权限" : "No alarm write permission") : ""}
+                        className={`min-w-16 rounded-md px-2 py-1.5 text-[9px] font-bold uppercase disabled:cursor-not-allowed disabled:opacity-45 ${
+                          urgent ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {actionId === alarm.id ? "..." : alarm.acknowledged ? (language === "zh" ? "恢复" : "Reset") : (language === "zh" ? "确认" : "ACK")}
+                      </button>
+                    </motion.div>
                   );
                 })}
               </div>

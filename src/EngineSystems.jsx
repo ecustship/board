@@ -4,6 +4,7 @@ import { useEngineData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
 import EngineSectionDiagram from "./components/EngineSectionDiagram";
 import { useUnitSystem } from "./hooks/useUnitSystem";
+import DataStateOverlay from "./components/DataStateOverlay";
 
 const HalfGauge = ({ value, max = 5000, label }) => {
   const r = 30;
@@ -70,11 +71,12 @@ const EngineSystems = () => {
 
   // Dynamic bottom metrics based on engine data
   const activeEngineData = engineData[activeEngine] || {};
-  const latestDataTimestamp = new Date(activeEngineData.timestamp || engineData.__meta?.timestamp || Date.now());
-  const nextRefreshAt = new Date(latestDataTimestamp.getTime() + 2000);
-  const voltage = activeEngineData.voltage || 400;
-  const current = activeEngineData.current || 450;
-  const powerFactor = activeEngineData.powerFactor || 0.84;
+  const timestampValue = activeEngineData.timestamp || engineData.__meta?.timestamp;
+  const latestDataTimestamp = timestampValue ? new Date(timestampValue) : null;
+  const nextRefreshAt = latestDataTimestamp ? new Date(latestDataTimestamp.getTime() + 2000) : null;
+  const voltage = activeEngineData.voltage ?? 0;
+  const current = activeEngineData.current ?? 0;
+  const powerFactor = activeEngineData.powerFactor ?? 0;
   const apparentPower = voltage * current * Math.sqrt(3) / 1000;
   const electricPower = activeEngineData.power || Math.round(apparentPower * powerFactor);
   const dynamicBottomMetrics = [
@@ -85,7 +87,8 @@ const EngineSystems = () => {
   ];
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#F5F6F8] dark:bg-background">
+    <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden bg-[#F5F6F8] dark:bg-background">
+      <DataStateOverlay resources={engineData.__resource} label="机组系统数据" />
 
       <main className="flex flex-row flex-1 gap-4 relative items-stretch" style={{ minHeight: 0 }}>
 
@@ -207,7 +210,7 @@ const EngineSystems = () => {
               <div className="rounded bg-white/5 p-2">
                 <div className="uppercase tracking-wider text-gray-500">Current TS</div>
                 <div className="mt-1 font-mono font-bold text-[#4CD7D0]">
-                  {latestDataTimestamp.toLocaleString(undefined, { hour12: false })}
+                  {latestDataTimestamp?.toLocaleString(undefined, { hour12: false }) || "--"}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -218,7 +221,7 @@ const EngineSystems = () => {
                 <div className="rounded bg-white/5 p-2">
                   <div className="uppercase tracking-wider text-gray-500">Next</div>
                   <div className="mt-1 font-mono font-bold text-[#4CD7D0]">
-                    {nextRefreshAt.toLocaleTimeString(undefined, { hour12: false })}
+                    {nextRefreshAt?.toLocaleTimeString(undefined, { hour12: false }) || "--"}
                   </div>
                 </div>
               </div>

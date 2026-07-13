@@ -1,5 +1,6 @@
 export const AUTH_SESSION_KEY = "marine_dashboard_auth";
 export const AUTH_CHANGED_EVENT = "marine-auth-session-change";
+export const AUTH_FORBIDDEN_EVENT = "marine-auth-forbidden";
 
 const dispatchAuthChange = (session, reason) => {
   if (typeof window === "undefined") return;
@@ -46,6 +47,16 @@ export const saveAuthSession = (loginData) => {
   window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
   dispatchAuthChange(session, "login");
   return session;
+};
+
+export const updateStoredUser = (user) => {
+  const session = getStoredAuth();
+  if (!session?.accessToken) return null;
+
+  const nextSession = { ...session, user };
+  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
+  dispatchAuthChange(nextSession, "user-refresh");
+  return nextSession;
 };
 
 export const clearAuthSession = (reason = "logout") => {

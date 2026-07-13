@@ -1,5 +1,5 @@
 import { API_VERSION, DEFAULT_API_CONTEXT, normalizeApiEnvelope } from "./contracts";
-import { clearAuthSession, getAuthToken } from "./authSession";
+import { AUTH_FORBIDDEN_EVENT, clearAuthSession, getAuthToken } from "./authSession";
 
 const trimSlashes = (value) => String(value || "").replace(/^\/+|\/+$/g, "");
 const isAbsoluteUrl = (value) => /^https?:\/\//i.test(String(value || ""));
@@ -33,7 +33,8 @@ export const apiRequest = async (path, options = {}) => {
       ? JSON.stringify(fetchOptions.body)
       : fetchOptions.body;
   const token = skipAuth ? "" : getAuthToken();
-  const response = await fetch(buildApiUrl(path, query), {
+  const requestUrl = buildApiUrl(path, query);
+  const response = await fetch(requestUrl, {
     ...fetchOptions,
     body,
     signal,
@@ -46,12 +47,32 @@ export const apiRequest = async (path, options = {}) => {
   });
 
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
+  let payload = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (parseError) {
+    const trimmedText = text.trim();
+    const error = new Error(
+      trimmedText.includes("Proxy error")
+        ? "后端服务未启动或无法连接。请确认后端已运行在 127.0.0.1:8080。"
+        : trimmedText.startsWith("<")
+        ? "后端接口没有返回 JSON。请确认后端服务已启动，并且 /api/v1 已代理到后端。"
+        : "后端响应不是合法 JSON。"
+    );
+    error.status = response.status;
+    error.responseText = text;
+    error.url = requestUrl;
+    throw error;
+  }
   const envelope = normalizeApiEnvelope(payload);
 
-  if (!response.ok || envelope.success === false) {
+  const businessFailed = envelope.code !== undefined && envelope.code !== 0 && envelope.code !== "OK";
+  if (!response.ok || envelope.success === false || businessFailed) {
     if (response.status === 401) {
       clearAuthSession("unauthorized");
+    }
+    if (response.status === 403 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(AUTH_FORBIDDEN_EVENT));
     }
     const error = new Error(envelope.message || `Request failed: ${response.status}`);
     error.status = response.status;

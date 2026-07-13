@@ -4,8 +4,9 @@ import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, Aler
 import RealtimeDataConfigModal from "./components/RealtimeDataConfigModal";
 import SystemStatusConfigModal from "./components/SystemStatusConfigModal";
 import { useNavigationConfig } from "./hooks/useNavigationConfig";
-import { useVesselData, useEngineData, useSystemStatus } from "./hooks/useRealTimeData";
+import { useVesselData, useEngineData, useSystemStatus, useAlarmsData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
+import DataStateOverlay from "./components/DataStateOverlay";
 
 const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
   const pct = Math.max(0, Math.min((Number(value) || 0) / max, 1));
@@ -93,8 +94,10 @@ const NavigationPage = () => {
   });
 
   const systemStatus = useSystemStatus(1500);
-  const latestDataTimestamp = new Date(vesselData.timestamp || systemStatus.timestamp || Date.now());
-  const nextRefreshAt = new Date(latestDataTimestamp.getTime() + realtimeDataConfig.refreshRate);
+  const { alarms, resource: alarmsResource } = useAlarmsData(5000, language);
+  const timestampValue = vesselData.timestamp || systemStatus.timestamp;
+  const latestDataTimestamp = timestampValue ? new Date(timestampValue) : null;
+  const nextRefreshAt = latestDataTimestamp ? new Date(latestDataTimestamp.getTime() + realtimeDataConfig.refreshRate) : null;
   const backendRoutePending = vesselData.backendRouteReady === false || systemStatus.backendRouteReady === false;
   const backendStateLabel = backendRoutePending
     ? language === "zh" ? "待接入" : "Pending"
@@ -109,16 +112,7 @@ const NavigationPage = () => {
     .filter(([, visible]) => visible)
     .map(([key]) => key);
 
-  const navigationAlarms = [
-    ...(engineData?.diesel1?.alerts || []).map((alert) => ({
-      ...alert,
-      priority: alert.type === "critical" ? "critical" : "medium",
-      source: "Main Engine",
-    })),
-    { id: "nav-1", priority: "high", message: t.fireAlarms, source: "Fire" },
-    { id: "nav-2", priority: "medium", message: t.highBilgeLevel, source: "Bilge" },
-    { id: "nav-3", priority: "low", message: "AIS target update", source: "Navigation" },
-  ];
+  const navigationAlarms = [...(alarms.active || [])];
 
   const rank = { critical: 4, high: 3, medium: 2, low: 1 };
   const sortedNavigationAlarms = navigationAlarms
@@ -165,7 +159,8 @@ const NavigationPage = () => {
   const mainEngine = engineData.diesel1 || {};
 
   return (
-    <div className="flex-1 min-h-0 h-full w-full px-2 sm:px-3 py-2 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 items-stretch">
+    <div className="relative flex-1 min-h-0 h-full w-full px-2 sm:px-3 py-2 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 items-stretch">
+      <DataStateOverlay resources={[vesselData.__resource, engineData.__resource, systemStatus.__resource, alarmsResource]} label={language === "zh" ? "导航监控数据" : "navigation data"} />
       {/* Column 1: 监控画面 */}
       <motion.section
         initial={{ opacity: 0, x: -20 }}
@@ -461,7 +456,7 @@ const NavigationPage = () => {
                 <div className="rounded bg-black/10 p-2">
                   <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "当前时间戳" : "Current TS"}</div>
                   <div className="mt-1 font-mono font-bold text-primary-container">
-                    {latestDataTimestamp.toLocaleString(language === "zh" ? "zh-CN" : "en-US", { hour12: false })}
+                    {latestDataTimestamp?.toLocaleString(language === "zh" ? "zh-CN" : "en-US", { hour12: false }) || "--"}
                   </div>
                 </div>
                 <div className="rounded bg-black/10 p-2">
@@ -473,7 +468,7 @@ const NavigationPage = () => {
                 <div className="rounded bg-black/10 p-2">
                   <div className="uppercase tracking-wider opacity-40">{language === "zh" ? "下一节点" : "Next Node"}</div>
                   <div className="mt-1 font-mono font-bold text-primary-container">
-                    {nextRefreshAt.toLocaleTimeString(language === "zh" ? "zh-CN" : "en-US", { hour12: false })}
+                    {nextRefreshAt?.toLocaleTimeString(language === "zh" ? "zh-CN" : "en-US", { hour12: false }) || "--"}
                   </div>
                 </div>
                 <div className="rounded bg-black/10 p-2">

@@ -10,6 +10,7 @@
 REACT_APP_API_BASE_URL=/api/v1
 REACT_APP_DATA_SOURCE=backend
 REACT_APP_DEMO_FLUCTUATION=false
+REACT_APP_AUTH_REQUIRED=true
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -18,6 +19,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 | `REACT_APP_API_BASE_URL` | `/api/v1` | 后端 API 基础地址。同域部署时使用 `/api/v1`；前后端分离部署时填写完整后端地址。 |
 | `REACT_APP_DATA_SOURCE` | `backend` | 数据源模式。正式联调和生产环境使用 `backend`；离线演示才使用 `mock`。 |
 | `REACT_APP_DEMO_FLUCTUATION` | `false` | 演示波动开关。正式后端联调和生产环境使用 `false`；离线演示才使用 `true`。 |
+| `REACT_APP_AUTH_REQUIRED` | `true` | 登录门禁开关。正式联调和生产环境必须为 `true`；仅离线视觉开发可临时关闭。 |
 | `REACT_APP_VESSEL_ID` | `MHM-TierIII-Demo` | 当前船舶 ID，前端会用它拼接 `/vessels/{vesselId}/...` 接口。 |
 
 同域部署示例：
@@ -26,6 +28,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 REACT_APP_API_BASE_URL=/api/v1
 REACT_APP_DATA_SOURCE=backend
 REACT_APP_DEMO_FLUCTUATION=false
+REACT_APP_AUTH_REQUIRED=true
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -35,6 +38,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 REACT_APP_API_BASE_URL=http://127.0.0.1:8080/api/v1
 REACT_APP_DATA_SOURCE=backend
 REACT_APP_DEMO_FLUCTUATION=false
+REACT_APP_AUTH_REQUIRED=true
 REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 ```
 
@@ -52,6 +56,9 @@ REACT_APP_DEMO_FLUCTUATION=true
 - [前后端分离 JSON/API 标准](docs/frontend-backend-json-api-standard.md)
 - [UI 参数主表映射清单](docs/page-parameter-master-table-mapping.md)
 - [Historical Information API 字段名标准](docs/historical-information-api-field-standard.md)
+- [当前前端读取后端数据说明](docs/current-frontend-backend-data-reading-cn.md)
+- [岸端兼容接口前端读取流程与标准](docs/shore-compatible-frontend-api-flow-cn.md)
+- [后端后续需要修改的问题清单](docs/backend-required-changes-cn.md)
 
 其中 `UI 参数主表映射清单` 已包含：
 
@@ -72,23 +79,34 @@ REACT_APP_DEMO_FLUCTUATION=true
 
 ## 主要接口
 
-当前前端已按后端现有公开页面路由启用以下接口：
+当前前端已按后端现有路由启用以下接口，除登录外均自动携带 Bearer Token：
 
 ```http
+POST /api/v1/auth/login
+GET  /api/v1/auth/me
+POST /api/v1/auth/logout
+POST /api/v1/auth/change-password
 GET  /api/v1/vessels/{vesselId}/engines
+GET  /api/v1/vessels/{vesselId}/realtime
+GET  /api/v1/vessels/{vesselId}/system-status
 GET  /api/v1/vessels/{vesselId}/alarms?includeHistory=true
 POST /api/v1/vessels/{vesselId}/alarms/{alarmId}/acknowledge
-GET  /api/v1/vessels/{vesselId}/trend?start=...&end=...&metrics=...&points=...
+POST /api/v1/alarms/{alarmId}/reset
+GET  /api/v1/trends/tags?engineCode={engineCode}
+POST /api/v1/trends/query
+GET/POST/PATCH /api/v1/users...
+GET/POST/PATCH/DELETE /api/v1/roles...
+GET  /api/v1/permissions
 ```
 
-以下页面接口后端当前尚未实现，前端不会主动请求，页面会显示未接入状态：
+以下接口后端当前尚未实现，前端不会把它们当成已完成能力：
 
 ```http
 GET /api/v1/dashboard/snapshot
-GET /api/v1/vessels/{vesselId}/realtime
 GET /api/v1/vessels/{vesselId}/navigation
-GET /api/v1/vessels/{vesselId}/system-status
 ```
+
+趋势页的日期和测点选择会直接调用标准趋势接口。由于后端限制单次最多查询 90 天，季度、半年和一年范围会拆成多个不超过 90 天的请求，再按 `tagCode + timestamp` 合并。
 
 配置页点表接口：
 
@@ -154,6 +172,12 @@ sudo rsync -a --delete build/ /var/www/marine-dashboard/build/
 然后用 Nginx 托管 `build` 目录。参考配置：
 
 [Nginx 部署配置示例](deploy/nginx-marine-dashboard.conf)
+
+该配置同时把 `/api/` 反向代理到服务器本机的 `127.0.0.1:8080`。部署前必须先启动 Go 后端并确认：
+
+```bash
+curl http://127.0.0.1:8080/health
+```
 
 如果使用 80 端口：
 
