@@ -25,7 +25,7 @@ const AUTH_REQUIRED = (process.env.REACT_APP_AUTH_REQUIRED || "true").toLowerCas
 const SearchModal = ({ isOpen, onClose }) => {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
-  const recentSearches = ["Engine Temperature", "Alarm History", "Fuel Consumption"];
+  const recentSearches = ["Engine Temperature", "Alarm History", "Power Station Load"];
 
   if (!isOpen) return null;
 
@@ -247,7 +247,7 @@ const SettingsModal = ({ isOpen, onClose, theme, setTheme }) => {
                       <span className="text-white font-black text-xl">AM</span>
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-900 dark:text-white">AURA MARINE</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white">Livewell</h3>
                       <p className="text-sm text-gray-500">{t.version} 1.0.0</p>
                     </div>
                   </div>
@@ -336,6 +336,90 @@ const AccountModal = ({ isOpen, onClose, user, onLogout, onChangePassword, onAcc
   );
 };
 
+const SystemPowerConfirmModal = ({ action, onClose, onConfirm }) => {
+  const { language } = useLanguage();
+  const [confirmed, setConfirmed] = useState(false);
+  if (!action) return null;
+
+  const isZh = language === "zh";
+  const isShutdown = action === "shutdown";
+  const copy = {
+    title: isShutdown ? (isZh ? "确认关机" : "Confirm Shutdown") : (isZh ? "确认重启" : "Confirm Restart"),
+    actionLabel: isShutdown ? (isZh ? "关机" : "Shutdown") : (isZh ? "重启" : "Restart"),
+    description: isShutdown
+      ? (isZh ? "该操作用于关闭船端监控主机。请确认当前没有正在进行的维护操作。" : "This action is intended to shut down the vessel monitoring host. Confirm that no maintenance task is in progress.")
+      : (isZh ? "该操作用于重启船端监控主机。重启期间前端页面和数据刷新可能会短暂中断。" : "This action is intended to restart the vessel monitoring host. The dashboard and data refresh may be briefly interrupted."),
+    placeholder: isZh ? "当前仅完成前端二次确认入口，后端维护接口接入后会发送真实指令。" : "This is the front-end confirmation entry. A real command will be sent after the backend maintenance API is connected.",
+    confirmText: isZh ? "我已了解影响，继续执行" : "I understand the impact and want to continue",
+    cancel: isZh ? "取消" : "Cancel",
+    confirm: isShutdown ? (isZh ? "确认关机" : "Confirm Shutdown") : (isZh ? "确认重启" : "Confirm Restart"),
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 10 }}
+          className="w-full max-w-md overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1A1B1F]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className={`p-5 text-white ${isShutdown ? "bg-red-600" : "bg-amber-500"}`}>
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-3xl">{isShutdown ? "power_settings_new" : "restart_alt"}</span>
+              <div>
+                <h2 className="text-lg font-black">{copy.title}</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/75">{copy.actionLabel}</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4 p-5">
+            <p className="text-sm leading-6 text-slate-700 dark:text-on-surface">{copy.description}</p>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold leading-5 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-on-surface-variant">
+              {copy.placeholder}
+            </p>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:text-on-surface">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+                className="mt-1 h-4 w-4 accent-[#0058bc]"
+              />
+              <span>{copy.confirmText}</span>
+            </label>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-10 rounded-lg px-4 text-xs font-black text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10"
+              >
+                {copy.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={!confirmed}
+                onClick={() => onConfirm(action)}
+                className={`h-10 rounded-lg px-5 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  isShutdown ? "bg-red-600 hover:bg-red-700" : "bg-amber-500 hover:bg-amber-600"
+                }`}
+              >
+                {copy.confirm}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const InnerDashboard = () => {
   const { t, language } = useLanguage();
   const { focusMode, toggleFocusMode } = useFocusMode();
@@ -355,6 +439,8 @@ const InnerDashboard = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [systemPowerAction, setSystemPowerAction] = useState(null);
+  const [systemPowerNotice, setSystemPowerNotice] = useState("");
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // Keyboard shortcut for fullscreen (F11)
@@ -391,6 +477,22 @@ const InnerDashboard = () => {
       setActiveView(navButtons[0]?.key || "navigation");
     }
   }, [activeView, hasPermission, navButtons]);
+
+  useEffect(() => {
+    if (!systemPowerNotice) return undefined;
+    const timer = window.setTimeout(() => setSystemPowerNotice(""), 4200);
+    return () => window.clearTimeout(timer);
+  }, [systemPowerNotice]);
+
+  const handleSystemPowerConfirm = (action) => {
+    const isShutdown = action === "shutdown";
+    setSystemPowerAction(null);
+    setSystemPowerNotice(
+      language === "zh"
+        ? `${isShutdown ? "关机" : "重启"}请求已确认：当前为前端确认入口，等待后端维护接口接入。`
+        : `${isShutdown ? "Shutdown" : "Restart"} request confirmed. This front-end entry is waiting for the backend maintenance API.`
+    );
+  };
 
   return (
     <div className="h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden bg-[#F1F3F5] bg-[radial-gradient(#d1d5db_0.5px,transparent_0.5px)] [background-size:24px_24px] dark:bg-grid font-body">
@@ -437,6 +539,20 @@ const InnerDashboard = () => {
               >
                 {focusMode ? "notifications_off" : "notifications_active"}
               </button>
+              <button
+                onClick={() => setSystemPowerAction("restart")}
+                className="material-symbols-outlined p-1 text-amber-500 transition-transform hover:scale-110"
+                title={language === "zh" ? "系统重启" : "System Restart"}
+              >
+                restart_alt
+              </button>
+              <button
+                onClick={() => setSystemPowerAction("shutdown")}
+                className="material-symbols-outlined p-1 text-red-500 transition-transform hover:scale-110"
+                title={language === "zh" ? "系统关机" : "System Shutdown"}
+              >
+                power_settings_new
+              </button>
               {/* Search Button */}
               <button
                 onClick={() => setSearchOpen(true)}
@@ -482,8 +598,18 @@ const InnerDashboard = () => {
           onAccessManagement={() => setActiveView("access-management")}
           canManageAccess={hasPermission(PERMISSIONS.USER_READ)}
         />
+        <SystemPowerConfirmModal
+          action={systemPowerAction}
+          onClose={() => setSystemPowerAction(null)}
+          onConfirm={handleSystemPowerConfirm}
+        />
         <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onChanged={logout} />
-        <GlobalAlarmBanner />
+        <GlobalAlarmBanner onOpenAlarms={() => setActiveView("alarms")} />
+        {systemPowerNotice && (
+          <div className="fixed right-4 top-20 z-[75] max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900 shadow-xl dark:border-amber-400/20 dark:bg-amber-950/80 dark:text-amber-100">
+            {systemPowerNotice}
+          </div>
+        )}
 
         {/* Main Content */}
         {activeView === "access-management" ? (

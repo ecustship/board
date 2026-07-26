@@ -6,8 +6,8 @@ import { useLanguage } from "../hooks/useLanguage";
 
 const text = {
   en: {
-    title: "Marine Dashboard",
-    subtitle: "Sign in with the backend account to receive a JWT access token.",
+    title: "Livewell",
+    subtitle: "Sign in with your account to continue to the vessel monitoring platform.",
     username: "Username",
     password: "Password",
     usernamePlaceholder: "admin",
@@ -20,8 +20,8 @@ const text = {
     failed: "Login failed. Check the account or backend service.",
   },
   zh: {
-    title: "船机监控平台",
-    subtitle: "使用后端账号登录，获取 JWT Token 后进入系统。",
+    title: "Livewell",
+    subtitle: "使用系统账号登录，进入船机监控平台。",
     username: "用户名",
     password: "密码",
     usernamePlaceholder: "admin",
@@ -62,7 +62,8 @@ const LoginPage = () => {
 
   return (
     <main className="flex h-[100dvh] items-start justify-center overflow-y-auto bg-[#edf2f4] px-4 py-8 text-[#1A1B1F] dark:bg-background dark:text-on-background md:items-center">
-      <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_0.7px,transparent_0.7px)] [background-size:22px_22px] opacity-40" />
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/image/board.jpg')" }} />
+      <div className="absolute inset-0 bg-[#08111a]/70" />
       <motion.section
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
@@ -71,8 +72,8 @@ const LoginPage = () => {
       >
         <div className="flex min-h-[520px] flex-col justify-between bg-[#121417] p-8 text-white">
           <div>
-            <span className="inline-flex rounded bg-white px-2 py-1">
-              <img src="/image/logo.png" alt="Logo" className="h-9 w-auto object-contain" />
+            <span className="inline-flex rounded-xl border border-white/15 bg-black/25 px-3 py-2 backdrop-blur">
+              <img src="/image/logo.png" alt="Logo" className="h-9 w-auto object-contain brightness-110" />
             </span>
           </div>
 
@@ -102,7 +103,7 @@ const LoginPage = () => {
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#0058bc] dark:text-[#4CD7D0]">
               Authentication
             </p>
-            <h2 className="mt-2 text-2xl font-black">{language === "zh" ? "后端账号登录" : "Backend Login"}</h2>
+            <h2 className="mt-2 text-2xl font-black">{language === "zh" ? "用户登录" : "User Login"}</h2>
           </div>
 
           <div className="space-y-4">

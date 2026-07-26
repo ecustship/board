@@ -726,8 +726,8 @@ const ConfigPage = () => {
                 <p className="font-bold text-sm text-gray-800 mb-3">{t.language}</p>
                 <div className="flex gap-3">
                   {[
-                    { key: "en", label: t.english, flag: "EN" },
-                    { key: "zh", label: t.chinese, flag: "中" },
+                    { key: "en", label: "English" },
+                    { key: "zh", label: "Chinese" },
                   ].map((lang) => (
                     <button
                       key={lang.key}
@@ -738,7 +738,6 @@ const ConfigPage = () => {
                           : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300"
                       }`}
                     >
-                      <span>{lang.flag}</span>
                       {lang.label}
                     </button>
                   ))}
@@ -1356,7 +1355,7 @@ const ConfigPage = () => {
                   <span className="text-white font-black text-2xl">AM</span>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-headline font-black tracking-tight">AURA MARINE</h2>
+                  <h2 className="text-2xl font-headline font-black tracking-tight">Livewell</h2>
                   <p className="text-sm text-gray-500">{t.version} 1.0.0</p>
                 </div>
               </div>

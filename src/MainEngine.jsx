@@ -24,18 +24,6 @@ const MainEngine = () => {
     { label: language === "zh" ? "转速" : "Speed", value: `${engine?.rpm || 0} RPM` },
   ];
 
-  // Determine if any unacknowledged high-priority alarm exists for fault highlighting
-  // Find the active alarm for the current engine (if any)
-  const engineAlarm = alarms.active.find(
-    (a) =>
-      !a.acknowledged &&
-      (a.priority === "critical" || a.priority === "high" || a.type === "alarm") &&
-      (a.source?.toLowerCase().includes(activeEngine.toLowerCase()) ||
-        a.source?.toLowerCase().includes("engine") ||
-        a.source?.toLowerCase().includes("diesel"))
-  );
-  const showFaultHighlight = !!engineAlarm;
-
   const engineButtons = [
     { key: "diesel1", label: t.engine1, status: engines.diesel1.status },
     { key: "diesel2", label: t.engine2, status: engines.diesel2.status },
@@ -123,23 +111,10 @@ const MainEngine = () => {
               ))}
             </div>
           </div>
-          {/* Fault Highlight Overlay */}
-          {showFaultHighlight && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 pointer-events-none z-30"
-            >
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-white"></span>
-                {t.faultDetected}: {engineAlarm?.message}
-              </div>
-            </motion.div>
-          )}
         </section>
 
         {/* Right: Status Panels */}
-        <aside className="w-72 xl:w-80 shrink-0 flex flex-col gap-4 z-20 justify-start overflow-y-auto max-h-full" style={{ minHeight: 0 }}>
+        <aside className="w-80 xl:w-[22rem] shrink-0 flex flex-col gap-4 z-20 justify-start overflow-y-auto max-h-full" style={{ minHeight: 0 }}>
           {/* Vessel Information */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -148,7 +123,7 @@ const MainEngine = () => {
             className="bg-[#1A1A1A] dark:bg-surface-container-lowest text-white dark:text-on-surface rounded-xl p-4 shadow-xl"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300 dark:text-on-surface-variant">
                 {language === "zh" ? "船名信息" : "Vessel"}
               </span>
               <span className="material-symbols-outlined text-[#4cd7d0] text-sm">directions_boat</span>
@@ -158,7 +133,7 @@ const MainEngine = () => {
             </div>
             <div className="mt-2">
               <p className="text-xl font-bold">{language === "zh" ? "A 号船" : "VESSEL A"}</p>
-              <p className="text-xs text-gray-400">IMO 9876543 / {language === "zh" ? "主推进监控" : "Main propulsion monitor"}</p>
+              <p className="text-xs text-gray-400 dark:text-on-surface-variant">IMO 9876543 / {language === "zh" ? "主推进监控" : "Main propulsion monitor"}</p>
             </div>
           </motion.div>
 
@@ -167,19 +142,19 @@ const MainEngine = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-slate-100/50 dark:border-dark-surface-variant"
+            className="bg-white dark:bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-slate-100/50 dark:border-dark-surface-variant dark:text-on-surface"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-on-surface-variant">
                 {language === "zh" ? "产品信息" : "Product Info"}
               </span>
               <span className="material-symbols-outlined text-[#4cd7d0] text-sm">precision_manufacturing</span>
             </div>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-400">Model</span><b>Marine Diesel</b></div>
-              <div className="flex justify-between"><span className="text-gray-400">Serial No.</span><b>ME-{activeEngine.toUpperCase()}-0428</b></div>
-              <div className="flex justify-between"><span className="text-gray-400">Prod. No.</span><b>PRD-2026-071</b></div>
-              <div className="flex justify-between"><span className="text-gray-400">{t.load}</span><b>{engine?.load || 0}%</b></div>
+            <div className="space-y-3 text-sm text-slate-800 dark:text-on-surface">
+              <div className="flex justify-between"><span className="text-gray-400 dark:text-on-surface-variant">Model</span><b>Marine Diesel</b></div>
+              <div className="flex justify-between"><span className="text-gray-400 dark:text-on-surface-variant">Serial No.</span><b>ME-{activeEngine.toUpperCase()}-0428</b></div>
+              <div className="flex justify-between"><span className="text-gray-400 dark:text-on-surface-variant">Prod. No.</span><b>PRD-2026-071</b></div>
+              <div className="flex justify-between"><span className="text-gray-400 dark:text-on-surface-variant">{t.load}</span><b>{engine?.load || 0}%</b></div>
             </div>
           </motion.div>
 
@@ -191,7 +166,7 @@ const MainEngine = () => {
             className="bg-[#1A1A1A] dark:bg-surface-container-lowest text-white dark:text-on-surface rounded-xl p-4 shadow-xl flex flex-col items-center"
           >
             <div className="mb-2 flex w-full items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300 dark:text-on-surface-variant">
                 {language === "zh" ? "报警摘要" : "Alarm Summary"}
               </span>
               <span className="material-symbols-outlined text-[#ff6b6b] text-sm">notifications</span>
@@ -200,7 +175,7 @@ const MainEngine = () => {
               {alarms.active.length > 0 ? alarms.active.slice(0, 3).map((alarm) => (
                 <div key={alarm.id} className="w-full rounded-lg bg-red-500/10 p-2 text-left">
                   <p className="truncate text-sm font-bold text-red-200">{alarm.message}</p>
-                  <p className="text-[11px] text-red-300/80">{alarm.source} / {alarm.priority}</p>
+                  <p className="text-[11px] text-red-300/80">{alarm.source}</p>
                 </div>
               )) : (
                 <div className="w-full rounded-lg bg-green-500/10 p-2 text-center text-[11px] font-bold text-green-300">
@@ -225,7 +200,7 @@ const MainEngine = () => {
           </span>
           <div className="flex items-baseline mt-1">
             <span className="text-2xl font-semibold text-[#1A1B1F] dark:text-on-surface">{engine?.rpm || 0}</span>
-            <span className="text-[10px] text-slate-400 ml-1 font-normal">{t.rpm}</span>
+            <span className="text-[10px] text-slate-400 dark:text-on-surface-variant ml-1 font-normal">{t.rpm}</span>
           </div>
         </motion.div>
 
@@ -240,7 +215,7 @@ const MainEngine = () => {
           </span>
           <div className="flex items-baseline mt-1">
             <span className="text-2xl font-semibold text-[#1A1B1F] dark:text-on-surface">{engine?.fuelRate?.toFixed(1) || 0}</span>
-            <span className="text-[10px] text-slate-400 ml-1 font-normal">{t.lh}</span>
+            <span className="text-[10px] text-slate-400 dark:text-on-surface-variant ml-1 font-normal">{t.lh}</span>
           </div>
         </motion.div>
 
@@ -255,7 +230,7 @@ const MainEngine = () => {
           </span>
           <div className="flex items-baseline mt-1">
             <span className="text-2xl font-semibold text-[#1A1B1F] dark:text-on-surface">{engine?.oilPressure?.toFixed(1) || 0}</span>
-            <span className="text-[10px] text-slate-400 ml-1 font-normal">{t.bar}</span>
+            <span className="text-[10px] text-slate-400 dark:text-on-surface-variant ml-1 font-normal">{t.bar}</span>
           </div>
         </motion.div>
 
@@ -270,7 +245,7 @@ const MainEngine = () => {
           </span>
           <div className="flex items-baseline mt-1">
             <span className="text-2xl font-semibold text-[#1A1B1F] dark:text-on-surface">{engine?.coolantTemp?.toFixed(1) || 0}</span>
-            <span className="text-[10px] text-slate-400 ml-1 font-normal">°C</span>
+            <span className="text-[10px] text-slate-400 dark:text-on-surface-variant ml-1 font-normal">°C</span>
           </div>
         </motion.div>
 
@@ -285,7 +260,7 @@ const MainEngine = () => {
           </span>
           <div className="flex items-baseline mt-1">
             <span className="text-2xl font-semibold text-blue-600 dark:text-primary">{engine?.load || 0}</span>
-            <span className="text-[10px] text-slate-400 ml-1 font-normal">{t.percent}</span>
+            <span className="text-[10px] text-slate-400 dark:text-on-surface-variant ml-1 font-normal">{t.percent}</span>
           </div>
         </motion.div>
       </footer>

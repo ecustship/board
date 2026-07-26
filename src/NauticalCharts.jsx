@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { motion } from "framer-motion";
 import { useLanguage } from "./hooks/useLanguage";
+import { useAlarmsData } from "./hooks/useRealTimeData";
 
 const vessels = [
   {
@@ -131,8 +132,12 @@ const bottomCards = [
 
 const NauticalCharts = () => {
   const { t, language } = useLanguage();
+  const { alarms } = useAlarmsData(5000, language);
   const [selectedVessel, setSelectedVessel] = useState(null);
   const mapRef = useRef(null);
+  const activeVessel = selectedVessel || vessels[0];
+  const totalGeneratorPower = "6.0 MW";
+  const nauticalAlarms = (alarms.active || []).filter((alarm) => !alarm.acknowledged).slice(0, 3);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -302,14 +307,9 @@ const NauticalCharts = () => {
           ))}
         </div>
 
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-          className="mt-4 w-full py-3 bg-[#ba1a1a] text-white rounded-xl font-bold uppercase tracking-wider text-[10px] hover:bg-[#ba1a1a]/90 active:scale-95 transition-all"
-        >
-          {t.emergencyStop}
-        </motion.button>
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold leading-5 text-white/55">
+          {language === "zh" ? "船队列表仅用于选择当前展示船舶。" : "Fleet list selects the vessel shown on the chart."}
+        </div>
       </motion.aside>
 
       {/* Right Sidebar: Real-time Telemetry & Alarms */}
@@ -321,25 +321,18 @@ const NauticalCharts = () => {
       >
         <div className="p-4 border-b border-white/10 bg-[#191c1e]/30">
           <h3 className="text-white font-bold text-[10px] uppercase tracking-widest mb-3">{t.realTimeDataLabel}</h3>
-          <div className="space-y-3">
-            <div className="rounded-xl bg-white/5 p-3">
-              <p className="text-[#2ae500] font-mono text-[15px]">
-                {selectedVessel ? formatCoord(selectedVessel.lat, true) : "31.2300° N"}
-              </p>
-              <p className="text-[#2ae500] font-mono text-[15px]">
-                {selectedVessel ? formatCoord(selectedVessel.lon, false) : "122.1000° E"}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <p className="text-[#717786] text-[10px] uppercase font-bold">{t.windSpeed}</p>
-                <p className="text-[#2ae500] text-xl font-bold">14.2 <span className="text-[12px]">{t.knots}</span></p>
+          <div className="grid grid-cols-1 gap-2">
+            {[
+              { label: "GPS", value: `${formatCoord(activeVessel.lat, true)} / ${formatCoord(activeVessel.lon, false)}` },
+              { label: t.localTime, value: activeVessel.time },
+              { label: t.totalGeneratorPower, value: totalGeneratorPower },
+              { label: t.speedOverGround, value: activeVessel.sog },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl bg-white/5 p-3">
+                <p className="text-[#717786] text-[9px] uppercase font-bold tracking-wider">{item.label}</p>
+                <p className="mt-1 truncate text-[#2ae500] font-mono text-[14px] font-bold">{item.value}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[#717786] text-[10px] uppercase font-bold">{t.vesselHeading}</p>
-                <p className="text-[#2ae500] text-xl font-bold">112° <span className="text-[12px]">NW</span></p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -362,33 +355,27 @@ const NauticalCharts = () => {
           <section>
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-white/40 font-bold text-[10px] uppercase tracking-widest">{t.activeAlarmsLabel}</h4>
-              <span className="text-[#ba1a1a] bg-[#ba1a1a]/10 px-2 py-0.5 rounded text-[10px] font-bold">2 {t.critical}</span>
+              <span className="text-[#ba1a1a] bg-[#ba1a1a]/10 px-2 py-0.5 rounded text-[10px] font-bold">{nauticalAlarms.length}</span>
             </div>
             <div className="space-y-3">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 p-3 rounded-xl flex items-start gap-3"
-              >
-                <span className="material-symbols-outlined text-[#ba1a1a] text-[18px]">fire_extinguisher</span>
-                <div>
-                  <p className="text-white text-[12px] font-bold">{t.fireDetection} 4</p>
-                  <p className="text-[#ba1a1a] text-[10px]">{t.mainEngineDeck} • 08:42:11</p>
-                </div>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 p-3 rounded-xl flex items-start gap-3"
-              >
-                <span className="material-symbols-outlined text-[#ba1a1a] text-[18px]">water_drop</span>
-                <div>
-                  <p className="text-white text-[12px] font-bold">{t.highBilge}</p>
-                  <p className="text-[#ba1a1a] text-[10px]">{t.aftPumpRoom} • 08:39:02</p>
-                </div>
-              </motion.div>
+              {nauticalAlarms.map((alarm, index) => (
+                <motion.div
+                  key={alarm.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + index * 0.08 }}
+                  className="bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 p-3 rounded-xl flex items-start gap-3"
+                >
+                  <span className="material-symbols-outlined text-[#ba1a1a] text-[18px]">notification_important</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-white text-[12px] font-bold">{alarm.message}</p>
+                    <p className="truncate text-[#ba1a1a] text-[10px]">{alarm.source || "--"} • {alarm.time || alarm.timestamp || "--"}</p>
+                  </div>
+                </motion.div>
+              ))}
+              {nauticalAlarms.length === 0 && (
+                <div className="rounded-xl bg-white/5 p-3 text-[12px] font-bold text-white/45">{t.noActiveAlarms}</div>
+              )}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

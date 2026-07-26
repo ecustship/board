@@ -1,12 +1,38 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, AlertCircle, Thermometer, RotateCw } from "lucide-react";
+import { Settings, MapPin, Wind, Compass, Gauge, Navigation, AlertTriangle, Thermometer, RotateCw } from "lucide-react";
 import RealtimeDataConfigModal from "./components/RealtimeDataConfigModal";
 import SystemStatusConfigModal from "./components/SystemStatusConfigModal";
 import { useNavigationConfig } from "./hooks/useNavigationConfig";
 import { useVesselData, useEngineData, useSystemStatus, useAlarmsData } from "./hooks/useRealTimeData";
 import { useLanguage } from "./hooks/useLanguage";
 import DataStateOverlay from "./components/DataStateOverlay";
+
+const WIND_DIRECTION_DEGREES = {
+  N: 0,
+  NNE: 22.5,
+  NE: 45,
+  ENE: 67.5,
+  E: 90,
+  ESE: 112.5,
+  SE: 135,
+  SSE: 157.5,
+  S: 180,
+  SSW: 202.5,
+  SW: 225,
+  WSW: 247.5,
+  W: 270,
+  WNW: 292.5,
+  NW: 315,
+  NNW: 337.5,
+};
+
+const windDirectionAngle = (direction) => {
+  const numeric = Number(direction);
+  if (Number.isFinite(numeric)) return numeric;
+  const key = String(direction || "").trim().toUpperCase();
+  return WIND_DIRECTION_DEGREES[key] ?? null;
+};
 
 const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
   const pct = Math.max(0, Math.min((Number(value) || 0) / max, 1));
@@ -52,29 +78,6 @@ const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
   );
 };
 
-const cctvFeeds = [
-  { id: "cam01", label: "CAM 01", src: "/4880777-uhd_3840_2160_30fps.mp4" },
-  { id: "cam02", label: "CAM 02", src: "/5024852-hd_1920_1080_24fps.mp4" },
-  { id: "cam03", label: "CAM 03", src: "/3918100-hd_1920_1080_30fps.mp4" },
-  { id: "cam04", label: "CAM 04", src: "/6028721-hd_1920_1080_25fps.mp4" },
-];
-
-const CctvTile = ({ feed }) => (
-  <div className="min-h-0 bg-surface-container-high dark:bg-surface-container-high rounded overflow-hidden relative">
-    <video
-      className="w-full h-full min-h-[72px] object-cover"
-      src={feed.src}
-      autoPlay
-      loop
-      muted
-      playsInline
-    />
-    <span className="absolute top-1 left-1 bg-black/50 text-[8px] text-white px-1">
-      {feed.label}
-    </span>
-  </div>
-);
-
 const NavigationPage = () => {
   const { t, language } = useLanguage();
   const { realtimeDataConfig, systemStatusConfig } = useNavigationConfig();
@@ -105,6 +108,15 @@ const NavigationPage = () => {
   const dataSourceLabel = backendRoutePending
     ? language === "zh" ? "后端接口未接入" : "Backend route pending"
     : vesselData.source || systemStatus.source || "MODBUS/RS485";
+  const generatorCapacity = 10000;
+  const totalGeneratorPower = Math.round((engineData.aux1?.power || 0) + (engineData.aux2?.power || 0));
+  const powerStationLoadPct = Math.max(0, Math.min(Math.round((totalGeneratorPower / generatorCapacity) * 100), 100));
+  const availablePower = Math.max(0, generatorCapacity - totalGeneratorPower);
+  const generatorPowerLabel = totalGeneratorPower >= 1000 ? `${(totalGeneratorPower / 1000).toFixed(1)}MW` : `${totalGeneratorPower}kW`;
+  const generatorPowerPct = Math.max(0, Math.min(totalGeneratorPower / generatorCapacity, 1));
+  const rollValue = Number(vesselData.roll ?? 0);
+  const windAngle = windDirectionAngle(vesselData.wind.direction);
+  const windAngleLabel = windAngle === null ? "--" : `${windAngle.toFixed(windAngle % 1 === 0 ? 0 : 1)}°`;
 
   const subsystems = systemStatusConfig.subsystems;
 
@@ -112,12 +124,7 @@ const NavigationPage = () => {
     .filter(([, visible]) => visible)
     .map(([key]) => key);
 
-  const navigationAlarms = [...(alarms.active || [])];
-
-  const rank = { critical: 4, high: 3, medium: 2, low: 1 };
-  const sortedNavigationAlarms = navigationAlarms
-    .sort((a, b) => (rank[b.priority] || 0) - (rank[a.priority] || 0))
-    .slice(0, 5);
+  const navigationAlarms = [...(alarms.active || [])].slice(0, 5);
 
   const dataCards = [
     {
@@ -131,22 +138,22 @@ const NavigationPage = () => {
       key: "gps",
       icon: <MapPin className="w-4 h-4 text-primary-container shrink-0" />,
       label: "GPS",
-      value: `${vesselData.position.lat.toFixed(3)}° N`,
-      detail: `${vesselData.position.lon.toFixed(3)}° E`,
+      value: `${vesselData.position.lat.toFixed(3)}° N / ${vesselData.position.lon.toFixed(3)}° E`,
+      detail: language === "zh" ? "经纬度同框显示" : "Latitude / Longitude",
     },
     {
       key: "wind",
       icon: <Wind className="w-4 h-4 text-primary-container shrink-0" />,
-      label: t.wind,
-      value: `${vesselData.wind.speed} ${t.knots}`,
-      detail: vesselData.wind.direction,
+      label: language === "zh" ? "风速风向" : "Wind Speed / Direction",
+      value: `${vesselData.wind.speed} ${t.knots} / ${windAngleLabel}`,
+      detail: language === "zh" ? `来向 ${vesselData.wind.direction}` : `From ${vesselData.wind.direction}`,
     },
     {
       key: "attitude",
       icon: <Navigation className="w-4 h-4 text-primary-container shrink-0" />,
-      label: language === "zh" ? "船舶姿态" : "Vessel Attitude",
-      value: `${vesselData.pitch.toFixed(1)}°`,
-      detail: `Roll ${vesselData.draft.fore.toFixed(1)}° / Trim ${vesselData.draft.aft.toFixed(1)}°`,
+      label: t.vesselMotion,
+      value: `${t.pitch} ${Number(vesselData.pitch || 0).toFixed(1)}° / ${t.roll} ${rollValue.toFixed(1)}°`,
+      detail: language === "zh" ? "暂不显示 Heave" : "Heave hidden for now",
     },
     {
       key: "alarms",
@@ -161,7 +168,7 @@ const NavigationPage = () => {
   return (
     <div className="relative flex-1 min-h-0 h-full w-full px-2 sm:px-3 py-2 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 items-stretch">
       <DataStateOverlay resources={[vesselData.__resource, engineData.__resource, systemStatus.__resource, alarmsResource]} label={language === "zh" ? "导航监控数据" : "navigation data"} />
-      {/* Column 1: 监控画面 */}
+      {/* Column 1: Fleet / Power Station Summary */}
       <motion.section
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -173,28 +180,25 @@ const NavigationPage = () => {
             {t.vessel}
           </h2>
           <span className="font-label text-[10px] uppercase tracking-widest opacity-60 text-on-background dark:text-on-background">
-            {t.cctv}
+            {language === "zh" ? "关键航行信息" : "Key Voyage Data"}
           </span>
         </div>
 
-        <div className="bg-surface-container-lowest dark:bg-surface-container-lowest rounded-xl p-2 sm:p-3 shadow-sm flex-1 min-h-0 flex flex-col">
-          <div className="flex gap-1.5 mb-2">
-            <button className="bg-on-secondary-fixed dark:bg-surface-container-high text-white dark:text-surface-container px-4 py-1 rounded-full text-xs font-bold">
-              {t.cctv1}
-            </button>
-            <button className="bg-surface-container-low dark:bg-surface-container-low text-on-surface dark:text-surface-container px-4 py-1 rounded-full text-xs font-bold opacity-60">
-              {t.cctv2}
-            </button>
-            <button className="bg-surface-container-low dark:bg-surface-container-low text-on-surface dark:text-surface-container px-4 py-1 rounded-full text-xs font-bold opacity-60">
-              {t.cctv3}
-            </button>
-          </div>
-          <div className="grid grid-cols-2 grid-rows-2 gap-1 min-h-0 flex-1 lg:min-h-[120px]">
-            {cctvFeeds.map((feed) => (
-              <CctvTile
-                key={feed.id}
-                feed={feed}
-              />
+        <div className="bg-surface-container-lowest dark:bg-surface-container-lowest rounded-xl p-3 shadow-sm flex-1 min-h-0 flex flex-col">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-2">
+            {[
+              { label: "GPS", value: `${vesselData.position.lat.toFixed(3)}°N / ${vesselData.position.lon.toFixed(3)}°E`, icon: <MapPin className="h-4 w-4" /> },
+              { label: language === "zh" ? "本地时间" : "Local Time", value: latestDataTimestamp?.toLocaleTimeString(language === "zh" ? "zh-CN" : "en-US", { hour12: false }) || "--", icon: <Navigation className="h-4 w-4" /> },
+              { label: t.totalGeneratorPower, value: generatorPowerLabel, icon: <Gauge className="h-4 w-4" /> },
+              { label: language === "zh" ? "船速" : "Speed", value: `${vesselData.sog.toFixed(1)} ${t.knots}`, icon: <Compass className="h-4 w-4" /> },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-surface-container-low">
+                <div className="flex min-w-0 items-center gap-2 text-primary-container">
+                  {item.icon}
+                  <span className="truncate text-[10px] font-black uppercase tracking-wider text-on-surface-variant">{item.label}</span>
+                </div>
+                <span className="shrink-0 font-mono text-xs font-black text-on-background dark:text-on-surface">{item.value}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -240,16 +244,16 @@ const NavigationPage = () => {
                     strokeLinecap="round"
                     strokeDasharray="201"
                     initial={{ strokeDashoffset: 201 }}
-                    animate={{ strokeDashoffset: 201 - (systemStatus.systemHealth / 100) * 201 }}
+                    animate={{ strokeDashoffset: 201 - (powerStationLoadPct / 100) * 201 }}
                     transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-lg font-headline font-bold">{systemStatus.systemHealth}%</span>
+                  <span className="text-lg font-headline font-bold">{powerStationLoadPct}%</span>
                 </div>
               </div>
               <span className="text-[10px] uppercase tracking-tighter mt-1 text-center max-w-[6.5rem] leading-tight">
-                {t.operatingAngle}
+                {t.powerStationLoad}
               </span>
             </div>
             <div className="flex flex-col items-center">
@@ -273,18 +277,22 @@ const NavigationPage = () => {
                     strokeLinecap="round"
                     strokeDasharray="201"
                     initial={{ strokeDashoffset: 201 }}
-                    animate={{ strokeDashoffset: 201 - (systemStatus.cpuLoad / 100) * 201 }}
+                    animate={{ strokeDashoffset: 201 - generatorPowerPct * 201 }}
                     transition={{ duration: 1, delay: 0.6, ease: "easeOut" }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-lg font-headline font-bold">{systemStatus.cpuLoad}%</span>
+                  <span className="text-sm font-headline font-bold">{generatorPowerLabel}</span>
                 </div>
               </div>
               <span className="text-[10px] uppercase tracking-tighter mt-1 text-center max-w-[6.5rem] leading-tight">
-                {t.propulsionPower}
+                {t.totalGeneratorPower}
               </span>
             </div>
+          </div>
+          <div className="mt-1 flex items-center justify-center gap-4 border-t border-white/10 pt-2 text-[10px] font-bold uppercase tracking-wider text-white/65">
+            <span>{t.availablePower}: {availablePower.toLocaleString()} kW</span>
+            <span>{language === "zh" ? "系统健康" : "System Health"}: {systemStatus.systemHealth}%</span>
           </div>
 
           {/* Subsystem Status Grid */}
@@ -329,10 +337,10 @@ const NavigationPage = () => {
         <div className="bg-surface-container-lowest dark:bg-surface-container-lowest rounded-2xl flex-1 min-h-0 p-3 sm:p-4 relative flex flex-col shadow-sm dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
           <div className="mb-3 shrink-0 border-l-2 border-primary-container pl-3 z-20 pointer-events-none">
             <span className="block text-[9px] uppercase tracking-widest opacity-50 text-on-background dark:text-on-background">
-              {t.currentConfiguration}
+              {language === "zh" ? "航行态势" : "Voyage Snapshot"}
             </span>
             <h2 className="text-xl sm:text-2xl font-headline font-extrabold tracking-tighter text-on-background dark:text-on-background">
-              {t.lux75Series}
+              {language === "zh" ? "船队总览" : "Fleet Overview"}
             </h2>
           </div>
           <div className="min-h-0 flex-[1_1_auto] overflow-hidden rounded-xl bg-surface-container-high dark:bg-surface-container-high">
@@ -412,19 +420,18 @@ const NavigationPage = () => {
                 </div>
                 {card.custom ? (
                   <div className="space-y-1.5">
-                    {sortedNavigationAlarms.slice(0, 5).map((alert) => (
+                    {navigationAlarms.map((alert) => (
                       <div key={alert.id} className="flex items-center justify-between gap-2">
                         <span className="min-w-0 truncate text-xs font-medium opacity-80 flex items-center gap-1">
-                          {alert.priority === "critical" || alert.priority === "high" ? (
-                            <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
-                          ) : (
-                            <AlertCircle className="w-3 h-3 text-yellow-500 shrink-0" />
-                          )}
+                          <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
                           {alert.message}
                         </span>
-                        <span className="text-[9px] uppercase text-white/40">{alert.priority}</span>
+                        <span className="shrink-0 text-[9px] uppercase text-white/40">{alert.source || t.alarmActive}</span>
                       </div>
                     ))}
+                    {navigationAlarms.length === 0 && (
+                      <div className="text-xs font-bold text-white/45">{t.noActiveAlarms}</div>
+                    )}
                   </div>
                 ) : (
                   <>

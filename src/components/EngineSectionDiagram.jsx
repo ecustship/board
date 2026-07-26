@@ -95,11 +95,16 @@ const MiniGauge = ({ label, value, unit, max, color = "#0058bc" }) => {
   );
 };
 
-const EngineSectionMap = ({ cylinders, formatUnit, language }) => {
+const EngineSectionMap = ({ cylinders, generator, formatUnit, language }) => {
   const leftBank = cylinders.slice(0, 8);
   const rightBank = cylinders.slice(8, 16);
   const cylinderLabel = language === "zh" ? "缸" : "CYL";
   const sectionLabel = language === "zh" ? "发动机剖面" : "ENGINE SECTION";
+  const generatorLabel = language === "zh" ? "发电机" : "GENERATOR";
+  const driveEndLabel = language === "zh" ? "驱动端" : "DRIVE END";
+  const nonDriveEndLabel = language === "zh" ? "非驱动端" : "NON-DRIVE END";
+  const windingLabel = language === "zh" ? "绕组" : "WINDING";
+  const inletLabel = language === "zh" ? "进口" : "INLET";
   const renderCylinder = (item, index, bank) => {
     const x = 100 + index * 80;
     const y = bank === "top" ? 58 : 278;
@@ -133,13 +138,24 @@ const EngineSectionMap = ({ cylinders, formatUnit, language }) => {
   };
 
   return (
-    <svg viewBox="0 35 760 320" className="h-full min-h-0 w-full" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox="0 35 900 320" className="h-full min-h-0 w-full" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="engineBody46" x1="0" x2="1">
           <stop offset="0" stopColor="#cfdce5" />
           <stop offset="1" stopColor="#f2f6f9" />
         </linearGradient>
+        <linearGradient id="generatorBody46" x1="0" x2="1">
+          <stop offset="0" stopColor="#e6f0fb" />
+          <stop offset="1" stopColor="#f8fbff" />
+        </linearGradient>
       </defs>
+
+      <text x="58" y="54" textAnchor="start" fontSize="11" fontWeight="900" fill="#64748b">
+        {nonDriveEndLabel}
+      </text>
+      <text x="794" y="54" textAnchor="middle" fontSize="11" fontWeight="900" fill="#0058bc">
+        {driveEndLabel}
+      </text>
 
       <rect x="10" y="78" width="46" height="24" rx="5" fill="#dcf7f3" stroke="#0f766e" strokeWidth="1.5" />
       <text x="33" y="94" textAnchor="middle" fontSize="11" fontWeight="900" fill="#0f766e">1-8</text>
@@ -153,6 +169,25 @@ const EngineSectionMap = ({ cylinders, formatUnit, language }) => {
       <rect x="205" y="154" width="350" height="28" rx="14" fill="#eef6fa" stroke="#94a3b8" strokeWidth="2" />
       <text x="380" y="173" textAnchor="middle" fontSize="13" fontWeight="900" fill="#475569">
         {sectionLabel}
+      </text>
+
+      <line x1="702" y1="197" x2="728" y2="197" stroke="#64748b" strokeWidth="8" strokeLinecap="round" />
+      <circle cx="718" cy="197" r="12" fill="#dbe7ed" stroke="#64748b" strokeWidth="3" />
+      <rect x="728" y="140" width="142" height="116" rx="18" fill="url(#generatorBody46)" stroke="#0058bc" strokeWidth="3" />
+      <rect x="744" y="156" width="110" height="82" rx="12" fill="#f8fbff" stroke="#93c5fd" strokeWidth="2" />
+      <circle cx="799" cy="197" r="28" fill="#dbeafe" stroke="#0058bc" strokeWidth="2.5" />
+      <circle cx="799" cy="197" r="11" fill="#bfdbfe" stroke="#0058bc" strokeWidth="2" />
+      <text x="799" y="121" textAnchor="middle" fontSize="13" fontWeight="900" fill="#0058bc">
+        {generatorLabel}
+      </text>
+      <text x="799" y="181" textAnchor="middle" fontSize="10" fontWeight="900" fill="#1e40af">
+        {generator.powerText}
+      </text>
+      <text x="799" y="224" textAnchor="middle" fontSize="9" fontWeight="900" fill="#475569">
+        {windingLabel} {generator.windingText}
+      </text>
+      <text x="799" y="238" textAnchor="middle" fontSize="9" fontWeight="900" fill="#475569">
+        {inletLabel} {generator.inletText}
       </text>
 
       {leftBank.map((item, index) => renderCylinder(item, index, "top"))}
@@ -205,6 +240,12 @@ const EngineSectionDiagram = ({ engine }) => {
       lubeOilFilterDifferentialPressure: engine?.lubeOilFilterDifferentialPressure ?? 0.52,
       mainControlPower: engine?.mainControlPower ?? 24,
       backupControlPower: engine?.backupControlPower ?? 24,
+      generatorPower: engine?.power ?? 0,
+      generatorVoltage: engine?.voltage ?? 400,
+      generatorCurrent: engine?.current ?? 462,
+      generatorPowerFactor: engine?.powerFactor ?? 0.85,
+      generatorWindingTemperature: engine?.generatorWindingTemperature ?? engine?.windingTemperature ?? null,
+      generatorInletTemperature: engine?.generatorInletTemperature ?? engine?.alternatorInletTemperature ?? null,
       lowLubOilShutdownBelow1500: engine?.lowLubOilShutdownBelow1500 ?? oilPress < 2.1,
       lowLubOilShutdownAbove1500: engine?.lowLubOilShutdownAbove1500 ?? oilPress < 2.8,
       highCoolantTemperatureShutdown: engine?.highCoolantTemperatureShutdown ?? coolantTemp > 95,
@@ -223,7 +264,7 @@ const EngineSectionDiagram = ({ engine }) => {
     fuel: language === "zh" ? "燃油系统" : "Fuel",
     intake: language === "zh" ? "进排气歧管" : "Intake / Exhaust",
     cylinders: language === "zh" ? "16 缸排气温度" : "16-Cylinder Exhaust Temp",
-    control: language === "zh" ? "控制电源与停机报警" : "Control Power & Shutdown",
+    control: language === "zh" ? "发电机 / 控制电源与停机报警" : "Generator / Control Power & Shutdown",
   };
   const zh = language === "zh";
   const paramLabels = {
@@ -259,6 +300,12 @@ const EngineSectionDiagram = ({ engine }) => {
     localEmergencyStop: zh ? "本地急停" : "Local Emergency Stop",
     remoteEmergencyStop: zh ? "远程急停" : "Remote Emergency Stop",
     engineRunning: zh ? "发动机运行" : "Engine Running",
+    generatorPower: zh ? "发电机功率" : "Generator Power",
+    generatorVoltage: zh ? "电压" : "Voltage",
+    generatorCurrent: zh ? "电流" : "Current",
+    generatorPowerFactor: zh ? "功率因数" : "Power Factor",
+    generatorWindingTemp: zh ? "发电机绕组温度" : "Generator Winding Temp",
+    generatorInletTemp: zh ? "发电机进口温度" : "Generator Inlet Temp",
   };
 
   const pressure = (value, digits = 1) => formatUnit("pressure", value, digits);
@@ -272,6 +319,11 @@ const EngineSectionDiagram = ({ engine }) => {
     { label: paramLabels.seaWaterPress, value: pressure(standard.seaWaterPressure, 1).value, unit: pressure(standard.seaWaterPressure, 1).unit, max: 6, color: "#0891b2" },
     { label: paramLabels.engineSpeed, value: standard.engineSpeed, unit: zh ? "r/min" : "RPM", max: 1600, color: "#dc2626" },
   ];
+  const generator = {
+    powerText: `${formatPlain(standard.generatorPower, 0)} kW`,
+    windingText: standard.generatorWindingTemperature === null ? "--" : temp(standard.generatorWindingTemperature, 0).text,
+    inletText: standard.generatorInletTemperature === null ? "--" : temp(standard.generatorInletTemperature, 0).text,
+  };
 
   return (
     <div className="h-full min-h-[300px] overflow-hidden rounded-2xl border border-slate-200 bg-[#eef3f5] p-3 shadow-inner 2xl:p-4 dark:border-white/10 dark:bg-[#15191d]">
@@ -311,7 +363,7 @@ const EngineSectionDiagram = ({ engine }) => {
               </div>
 
               <div className="flex min-h-0 items-center justify-center">
-                <EngineSectionMap cylinders={standard.exhaustCylinders} formatUnit={formatUnit} language={language} />
+                <EngineSectionMap cylinders={standard.exhaustCylinders} generator={generator} formatUnit={formatUnit} language={language} />
               </div>
             </div>
           </Panel>
@@ -341,9 +393,13 @@ const EngineSectionDiagram = ({ engine }) => {
         </div>
 
         <Panel title={labels.control}>
-          <div className="grid h-full min-h-0 grid-cols-9 gap-2 2xl:gap-3">
-            <DataCell label={paramLabels.mainControlPower} value={formatPlain(standard.mainControlPower, 0)} unit="V" tone="good" />
-            <DataCell label={paramLabels.backupControlPower} value={formatPlain(standard.backupControlPower, 0)} unit="V" tone="good" />
+          <div className="grid h-full min-h-0 grid-cols-[repeat(13,minmax(0,1fr))] gap-2 2xl:gap-3">
+            <DataCell compact label={paramLabels.generatorPower} value={formatPlain(standard.generatorPower, 0)} unit="kW" tone="info" />
+            <DataCell compact label={paramLabels.generatorVoltage} value={formatPlain(standard.generatorVoltage, 0)} unit="V" tone="good" />
+            <DataCell compact label={paramLabels.generatorCurrent} value={formatPlain(standard.generatorCurrent, 0)} unit="A" tone="good" />
+            <DataCell compact label={paramLabels.generatorPowerFactor} value={formatPlain(standard.generatorPowerFactor, 2)} tone="good" />
+            <DataCell compact label={paramLabels.mainControlPower} value={formatPlain(standard.mainControlPower, 0)} unit="V" tone="good" />
+            <DataCell compact label={paramLabels.backupControlPower} value={formatPlain(standard.backupControlPower, 0)} unit="V" tone="good" />
             <StatusCell compact label={paramLabels.lowLOPressBelow1500} alarm={standard.lowLubOilShutdownBelow1500} />
             <StatusCell compact label={paramLabels.lowLOPressAbove1500} alarm={standard.lowLubOilShutdownAbove1500} />
             <StatusCell compact label={paramLabels.highCoolantTempSD} alarm={standard.highCoolantTemperatureShutdown} />

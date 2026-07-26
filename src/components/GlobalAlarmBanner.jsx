@@ -1,16 +1,9 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Bell, BellOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAlarmsData } from "../hooks/useRealTimeData";
 import { useLanguage } from "../hooks/useLanguage";
 import { useFocusMode } from "../hooks/useFocusMode";
-
-const priorityRank = {
-  critical: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-};
 
 const playAlarmTone = () => {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -34,25 +27,29 @@ const playAlarmTone = () => {
   oscillator.onended = () => context.close();
 };
 
-const GlobalAlarmBanner = () => {
-  const { language } = useLanguage();
+const GlobalAlarmBanner = ({ onOpenAlarms }) => {
+  const { t, language } = useLanguage();
   const { focusMode, alarmMuted, toggleFocusMode } = useFocusMode();
   const { alarms, resource } = useAlarmsData(5000, language);
   const previousCountRef = useRef(0);
+  const [expandedCount, setExpandedCount] = useState(3);
 
   const activeAlarms = useMemo(
     () =>
       alarms.active
         .filter((alarm) => !alarm.acknowledged)
-        .sort((a, b) => (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0)),
+        .sort((a, b) => {
+          const aTime = new Date(a.timestamp || a.occurredAt || a.time || 0).getTime();
+          const bTime = new Date(b.timestamp || b.occurredAt || b.time || 0).getTime();
+          if (Number.isFinite(aTime) && Number.isFinite(bTime)) return bTime - aTime;
+          return 0;
+        }),
     [alarms.active]
   );
 
-  const topAlarms = activeAlarms.slice(0, 3);
+  const topAlarms = activeAlarms.slice(0, expandedCount);
   const hasAlarms = topAlarms.length > 0;
-  const criticalCount = activeAlarms.filter(
-    (alarm) => alarm.priority === "critical" || alarm.priority === "high"
-  ).length;
+  const nextExpandedCount = expandedCount === 3 ? 5 : expandedCount === 5 ? 10 : 3;
 
   useEffect(() => {
     if (!alarmMuted && activeAlarms.length > previousCountRef.current && activeAlarms.length > 0) {
@@ -89,19 +86,35 @@ const GlobalAlarmBanner = () => {
                 {language === "zh" ? "简易报警" : "Alarm"}
               </span>
               <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold dark:bg-red-900/20">
-                {criticalCount}/{activeAlarms.length}
+                {activeAlarms.length}
               </span>
             </div>
 
-            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               {topAlarms.map((alarm) => (
-                <div key={alarm.id} className="min-w-0 rounded bg-red-50 px-2 py-1 text-[11px] dark:bg-red-900/20">
+                <button
+                  key={alarm.id}
+                  type="button"
+                  onClick={onOpenAlarms}
+                  className="max-w-full min-w-0 rounded bg-red-50 px-2 py-1 text-left text-[11px] transition hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/35 sm:max-w-[20rem]"
+                >
                   <span className="font-bold text-red-700 dark:text-red-300">{alarm.source}</span>
                   <span className="mx-1 text-red-300">/</span>
                   <span className="text-red-600 dark:text-red-200">{alarm.message}</span>
-                </div>
+                </button>
               ))}
             </div>
+
+            {activeAlarms.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setExpandedCount(nextExpandedCount)}
+                className="rounded-full border border-red-200 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:text-red-200 dark:hover:bg-red-900/20"
+                title={language === "zh" ? "切换报警条显示数量" : "Change alarm count"}
+              >
+                {expandedCount === 10 ? "3" : `+${nextExpandedCount}`}
+              </button>
+            )}
 
             <button
               onClick={toggleFocusMode}
@@ -115,6 +128,14 @@ const GlobalAlarmBanner = () => {
               {focusMode ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
               {focusMode ? (language === "zh" ? "已静音" : "Muted") : (language === "zh" ? "有声" : "Sound")}
             </button>
+            {onOpenAlarms && (
+              <button
+                onClick={onOpenAlarms}
+                className="rounded-full bg-[#1A1B1F] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0058bc] dark:bg-[#4CD7D0] dark:text-[#00201e]"
+              >
+                {t.openAlarmCenter}
+              </button>
+            )}
           </div>
         </motion.div>
       )}

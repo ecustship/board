@@ -6,7 +6,12 @@ import { useTrendSeries, useTrendTags } from "./hooks/useTrendQuery";
 import DataStateOverlay from "./components/DataStateOverlay";
 
 const COLORS = ["#0058bc", "#0f766e", "#dc2626", "#7c3aed", "#ca8a04", "#0891b2", "#16a34a", "#db2777"];
-const ENGINES = ["CMMS01", "CMMS02", "CMMS03", "CMMS04"];
+const DEVICE_OPTIONS = [
+  { key: "CMMS01", zh: "1 号柴油发电机", en: "Diesel Genset 1" },
+  { key: "CMMS02", zh: "2 号柴油发电机", en: "Diesel Genset 2" },
+  { key: "CMMS03", zh: "3 号柴油发电机", en: "Diesel Genset 3" },
+  { key: "CMMS04", zh: "4 号柴油发电机", en: "Diesel Genset 4" },
+];
 const RANGE_OPTIONS = [
   { key: "week", days: 7, zh: "一星期", en: "Week" },
   { key: "month", days: 31, zh: "一个月", en: "Month" },
@@ -26,6 +31,18 @@ const addDays = (value, days) => {
 };
 
 const metricLabel = (tag, language) => language === "zh" ? tag.tagName || tag.tagNameEn || tag.tagCode : tag.tagNameEn || tag.tagName || tag.tagCode;
+const deviceLabel = (deviceCode, language) => {
+  const option = DEVICE_OPTIONS.find((item) => item.key === deviceCode);
+  if (!option) return deviceCode;
+  return language === "zh" ? option.zh : option.en;
+};
+
+const defaultMetricSelection = (tags) => {
+  if (!tags.length) return [];
+  const preferred = ["ENGINE_SPEED", "LUBE_OIL_PRESS", "COOLANT_TEMPERATURE", "EXHAUST_TEMP", "ELECTRIC_POWER", "GENERATOR_POWER"];
+  const ordered = preferred.map((suffix) => tags.find((tag) => tag.tagCode.endsWith(suffix))?.tagCode).filter(Boolean);
+  return [...new Set([...ordered, ...tags.slice(0, 4).map((tag) => tag.tagCode)])].slice(0, 3);
+};
 
 const MetricPicker = ({ tags, selected, onToggle, language }) => (
   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="shrink-0 border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-surface-container-lowest">
@@ -40,12 +57,11 @@ const MetricPicker = ({ tags, selected, onToggle, language }) => (
           <button
             key={tag.tagCode}
             onClick={() => onToggle(tag.tagCode)}
-            title={tag.tagCode}
+            title={`${tag.tagCode}${tag.unit ? ` / ${tag.unit}` : ""}`}
             className={`flex min-h-10 items-center gap-2 rounded-md border px-2 text-left text-[10px] font-bold ${checked ? "border-transparent text-white" : "border-slate-200 bg-slate-50 text-slate-600"}`}
             style={checked ? { backgroundColor: COLORS[index % COLORS.length] } : {}}
           >
             <span className="min-w-0 flex-1 leading-4">{metricLabel(tag, language)}</span>
-            <span className="shrink-0 font-mono text-[9px] opacity-70">{tag.unit || "-"}</span>
           </button>
         );
       })}
@@ -58,7 +74,7 @@ const nearestPoint = (points, timestamp) => {
   return points.reduce((best, point) => Math.abs(new Date(point.timestamp).getTime() - timestamp) < Math.abs(new Date(best.timestamp).getTime() - timestamp) ? point : best, points[0]);
 };
 
-const TrendChart = ({ title, series, tagsByCode, selected, startTime, endTime, rangeLabel, onSettings, language }) => {
+const TrendChart = ({ title, deviceCode, onDeviceChange, series, tagsByCode, selected, startTime, endTime, rangeLabel, onSettings, language }) => {
   const [hoverRatio, setHoverRatio] = useState(null);
   const width = 1000;
   const height = 300;
@@ -85,8 +101,26 @@ const TrendChart = ({ title, series, tagsByCode, selected, startTime, endTime, r
   return (
     <section className="relative flex min-h-0 flex-1 flex-col border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-surface-container-lowest">
       <header className="mb-2 flex shrink-0 items-start justify-between gap-3">
-        <div><h3 className="text-xs font-black uppercase text-slate-800 dark:text-on-surface">{title}</h3><p className="text-[10px] text-slate-400">{rangeLabel} / {new Date(startTime).toLocaleDateString()} - {new Date(endTime).toLocaleDateString()}</p></div>
-        <div className="flex min-w-0 items-start gap-2"><div className="flex max-w-[620px] flex-wrap justify-end gap-x-3 gap-y-1">{selected.map((code, index) => { const tag = tagsByCode[code]; return <span key={code} className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />{tag ? metricLabel(tag, language) : code}</span>; })}</div><button onClick={onSettings} className="rounded-md border border-slate-200 p-2 text-slate-500 hover:text-[#0058bc]" title={language === "zh" ? "曲线参数设置" : "Curve settings"}><SlidersHorizontal className="h-4 w-4" /></button></div>
+        <div>
+          <h3 className="text-xs font-black uppercase text-slate-800 dark:text-on-surface">{title}</h3>
+          <p className="text-[10px] text-slate-400">{rangeLabel} / {new Date(startTime).toLocaleDateString()} - {new Date(endTime).toLocaleDateString()}</p>
+        </div>
+        <div className="flex min-w-0 items-start gap-2">
+          <select
+            value={deviceCode}
+            onChange={(event) => onDeviceChange(event.target.value)}
+            className="h-8 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-bold text-slate-700 outline-none dark:border-white/10 dark:bg-surface-container-low dark:text-on-surface"
+            title={language === "zh" ? "设备组" : "Device group"}
+          >
+            {DEVICE_OPTIONS.map((item) => (
+              <option key={item.key} value={item.key}>{deviceLabel(item.key, language)}</option>
+            ))}
+          </select>
+          <div className="flex max-w-[520px] flex-wrap justify-end gap-x-3 gap-y-1">
+            {selected.map((code, index) => { const tag = tagsByCode[code]; return <span key={code} className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />{tag ? metricLabel(tag, language) : code}</span>; })}
+          </div>
+          <button onClick={onSettings} className="rounded-md border border-slate-200 p-2 text-slate-500 hover:text-[#0058bc] dark:border-white/10" title={language === "zh" ? "曲线参数设置" : "Curve settings"}><SlidersHorizontal className="h-4 w-4" /></button>
+        </div>
       </header>
       <div className="relative min-h-0 flex-1">
         {!paths.some((item) => item.points.length) && <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-400">{language === "zh" ? "所选时间范围没有趋势数据" : "No trend data in this range"}</div>}
@@ -95,7 +129,18 @@ const TrendChart = ({ title, series, tagsByCode, selected, startTime, endTime, r
           {paths.map((item) => <motion.path key={item.tagCode} d={item.path} fill="none" stroke={item.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} />)}
           {hoverRatio !== null && <line x1={padding + hoverRatio * (width - padding * 2)} x2={padding + hoverRatio * (width - padding * 2)} y1={padding} y2={height - padding} stroke="#1f2937" strokeDasharray="5 5" vectorEffect="non-scaling-stroke" />}
         </svg>
-        {hoverTimestamp !== null && visible.length > 0 && <div className="pointer-events-none absolute right-3 top-3 min-w-56 rounded-md border border-slate-200 bg-white/95 p-2 text-[10px] shadow-lg dark:border-white/10 dark:bg-surface-container-low"><div className="mb-1 font-bold text-slate-700">{new Date(hoverTimestamp).toLocaleString("zh-CN", { hour12: false })}</div>{visible.map((item, index) => { const point = nearestPoint(item.points, hoverTimestamp); const tag = tagsByCode[item.tagCode]; return <div key={item.tagCode} className="flex justify-between gap-4 leading-5"><span style={{ color: COLORS[index % COLORS.length] }}>{tag ? metricLabel(tag, language) : item.tagName}</span><b>{point ? `${point.value} ${item.unit || tag?.unit || ""}` : "--"}</b></div>; })}</div>}
+        {hoverTimestamp !== null && visible.length > 0 && (
+          <div
+            className="pointer-events-none absolute top-3 z-10 min-w-56 rounded-md border border-slate-200 bg-white/95 p-2 text-[10px] shadow-lg dark:border-white/10 dark:bg-surface-container-low"
+            style={{
+              left: `${hoverRatio * 100}%`,
+              transform: hoverRatio > 0.72 ? "translateX(calc(-100% - 12px))" : "translateX(12px)",
+            }}
+          >
+            <div className="mb-1 font-bold text-slate-700">{new Date(hoverTimestamp).toLocaleString("zh-CN", { hour12: false })}</div>
+            {visible.map((item, index) => { const point = nearestPoint(item.points, hoverTimestamp); const tag = tagsByCode[item.tagCode]; return <div key={item.tagCode} className="flex justify-between gap-4 leading-5"><span style={{ color: COLORS[index % COLORS.length] }}>{tag ? metricLabel(tag, language) : item.tagName}</span><b>{point ? `${point.value} ${item.unit || tag?.unit || ""}` : "--"}</b></div>; })}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -105,35 +150,52 @@ const Trend = () => {
   const { language } = useLanguage();
   const today = useMemo(() => new Date(), []);
   const initialStart = useMemo(() => { const date = new Date(today); date.setDate(date.getDate() - 89); return date; }, [today]);
-  const [engineCode, setEngineCode] = useState("CMMS01");
+  const [screenDevices, setScreenDevices] = useState({ screenA: "CMMS01", screenB: "CMMS02" });
   const [startDate, setStartDate] = useState(dateValue(initialStart));
   const [endDate, setEndDate] = useState(dateValue(today));
   const [rangeKey, setRangeKey] = useState("quarter");
   const [screenMode, setScreenMode] = useState("split");
   const [settingsScreen, setSettingsScreen] = useState(null);
   const [screenMetrics, setScreenMetrics] = useState({ screenA: [], screenB: [] });
-  const tagsResource = useTrendTags(engineCode);
-  const tags = tagsResource.data;
+  const tagsResourceA = useTrendTags(screenDevices.screenA);
+  const tagsResourceB = useTrendTags(screenDevices.screenB);
+  const tagsByScreen = useMemo(() => ({
+    screenA: tagsResourceA.data,
+    screenB: tagsResourceB.data,
+  }), [tagsResourceA.data, tagsResourceB.data]);
 
   useEffect(() => {
-    if (!tags.length) return;
-    const preferred = ["ENGINE_SPEED", "LUBE_OIL_PRESS", "COOLANT_TEMPERATURE", "EXHAUST_TEMP"];
-    const ordered = preferred.map((suffix) => tags.find((tag) => tag.tagCode.endsWith(suffix))?.tagCode).filter(Boolean);
-    const defaults = [...new Set([...ordered, ...tags.slice(0, 4).map((tag) => tag.tagCode)])];
-    setScreenMetrics({ screenA: defaults.slice(0, 2), screenB: defaults.slice(2, 4).length ? defaults.slice(2, 4) : defaults.slice(0, 2) });
-  }, [engineCode, tags]);
+    const defaults = defaultMetricSelection(tagsResourceA.data);
+    if (defaults.length) setScreenMetrics((current) => ({ ...current, screenA: defaults }));
+  }, [screenDevices.screenA, tagsResourceA.data]);
+
+  useEffect(() => {
+    const defaults = defaultMetricSelection(tagsResourceB.data);
+    if (defaults.length) setScreenMetrics((current) => ({ ...current, screenB: defaults }));
+  }, [screenDevices.screenB, tagsResourceB.data]);
 
   const activeScreens = useMemo(
     () => screenMode === "single" ? ["screenA"] : ["screenA", "screenB"],
     [screenMode]
   );
-  const requestedTags = useMemo(() => [...new Set(activeScreens.flatMap((screen) => screenMetrics[screen]))], [activeScreens, screenMetrics]);
-  const queryResource = useTrendSeries({ engineCode, tagCodes: requestedTags, startTime: startOfDay(startDate), endTime: endOfDay(endDate), interval: rangeKey === "week" ? "1m" : "1h" });
-  const tagsByCode = useMemo(() => Object.fromEntries(tags.map((tag) => [tag.tagCode, tag])), [tags]);
+  const queryResourceA = useTrendSeries({ engineCode: screenDevices.screenA, tagCodes: screenMetrics.screenA, startTime: startOfDay(startDate), endTime: endOfDay(endDate), interval: rangeKey === "week" ? "1m" : "1h" });
+  const queryResourceB = useTrendSeries({ engineCode: screenDevices.screenB, tagCodes: screenMetrics.screenB, startTime: startOfDay(startDate), endTime: endOfDay(endDate), interval: rangeKey === "week" ? "1m" : "1h" });
+  const queryByScreen = { screenA: queryResourceA, screenB: queryResourceB };
+  const tagsByCodeA = useMemo(() => Object.fromEntries(tagsResourceA.data.map((tag) => [tag.tagCode, tag])), [tagsResourceA.data]);
+  const tagsByCodeB = useMemo(() => Object.fromEntries(tagsResourceB.data.map((tag) => [tag.tagCode, tag])), [tagsResourceB.data]);
+  const tagsByCodeScreen = { screenA: tagsByCodeA, screenB: tagsByCodeB };
   const range = RANGE_OPTIONS.find((item) => item.key === rangeKey) || RANGE_OPTIONS[2];
   const toggleMetric = (screen, tagCode) => setScreenMetrics((current) => { const selected = current[screen]; const next = selected.includes(tagCode) ? selected.filter((item) => item !== tagCode) : [...selected, tagCode]; return { ...current, [screen]: next.length ? next : selected }; });
+  const changeScreenDevice = (screen, deviceCode) => {
+    setScreenDevices((current) => ({ ...current, [screen]: deviceCode }));
+    setSettingsScreen(null);
+  };
   const applyRange = (key) => { const option = RANGE_OPTIONS.find((item) => item.key === key) || RANGE_OPTIONS[2]; setRangeKey(key); setEndDate(addDays(startDate, option.days)); };
-  const overlayResources = [tagsResource, requestedTags.length ? queryResource : { status: "loading" }];
+  const overlayResources = activeScreens.flatMap((screen) => {
+    const tagsResource = screen === "screenA" ? tagsResourceA : tagsResourceB;
+    const queryResource = screen === "screenA" ? queryResourceA : queryResourceB;
+    return [tagsResource, screenMetrics[screen].length ? queryResource : { status: "idle" }];
+  });
 
   return (
     <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f5f6f8] px-3 pb-3 pt-2 dark:bg-background">
@@ -141,7 +203,6 @@ const Trend = () => {
       <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 bg-white p-3 shadow-sm dark:bg-surface-container-lowest">
         <div className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-[#4cd7d0]" /><span className="text-xs font-black uppercase text-slate-700 dark:text-on-surface">{language === "zh" ? "趋势查询" : "Trend Query"}</span></div>
         <div className="flex flex-wrap items-center justify-end gap-2 text-[10px] font-bold text-slate-500">
-          <select value={engineCode} onChange={(e) => setEngineCode(e.target.value)} className="h-8 rounded border border-slate-200 bg-white px-2 text-slate-700">{ENGINES.map((code) => <option key={code}>{code}</option>)}</select>
           <label>{language === "zh" ? "开始" : "Start"}<input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setEndDate(addDays(e.target.value, range.days)); }} className="ml-1 h-8 rounded border border-slate-200 px-2 text-slate-700" /></label>
           <label>{language === "zh" ? "结束" : "End"}<input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="ml-1 h-8 rounded border border-slate-200 px-2 text-slate-700" /></label>
           <select value={rangeKey} onChange={(e) => applyRange(e.target.value)} className="h-8 rounded border border-slate-200 bg-white px-2 text-slate-700">{RANGE_OPTIONS.map((item) => <option key={item.key} value={item.key}>{language === "zh" ? item.zh : item.en}</option>)}</select>
@@ -149,7 +210,26 @@ const Trend = () => {
         </div>
       </header>
       <div className={`grid min-h-0 flex-1 gap-3 ${screenMode === "split" ? "grid-rows-2" : "grid-rows-1"}`}>
-        {activeScreens.map((screen, index) => <div key={screen} className="flex min-h-0 flex-col gap-2">{settingsScreen === screen && <MetricPicker tags={tags} selected={screenMetrics[screen]} onToggle={(code) => toggleMetric(screen, code)} language={language} />}<TrendChart title={language === "zh" ? `趋势屏幕 ${index + 1}` : `Trend Screen ${index + 1}`} series={queryResource.data} tagsByCode={tagsByCode} selected={screenMetrics[screen]} startTime={startOfDay(startDate)} endTime={endOfDay(endDate)} rangeLabel={language === "zh" ? range.zh : range.en} onSettings={() => setSettingsScreen(settingsScreen === screen ? null : screen)} language={language} /></div>)}
+        {activeScreens.map((screen, index) => (
+          <div key={screen} className="flex min-h-0 flex-col gap-2">
+            {settingsScreen === screen && (
+              <MetricPicker tags={tagsByScreen[screen]} selected={screenMetrics[screen]} onToggle={(code) => toggleMetric(screen, code)} language={language} />
+            )}
+            <TrendChart
+              title={language === "zh" ? `趋势屏幕 ${index + 1}` : `Trend Screen ${index + 1}`}
+              deviceCode={screenDevices[screen]}
+              onDeviceChange={(deviceCode) => changeScreenDevice(screen, deviceCode)}
+              series={queryByScreen[screen].data}
+              tagsByCode={tagsByCodeScreen[screen]}
+              selected={screenMetrics[screen]}
+              startTime={startOfDay(startDate)}
+              endTime={endOfDay(endDate)}
+              rangeLabel={language === "zh" ? range.zh : range.en}
+              onSettings={() => setSettingsScreen(settingsScreen === screen ? null : screen)}
+              language={language}
+            />
+          </div>
+        ))}
       </div>
     </main>
   );
