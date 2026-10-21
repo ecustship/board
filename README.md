@@ -1,5 +1,7 @@
 # Marine Dashboard 船机监控前端
 
+本次源码交付见 [ABS 源码评审说明](docs/ABS_SOURCE_REVIEW_20261021.md)，分支为 `review/abs-source-20261021`。
+
 这是船机监控大屏前端项目，基于 React / Create React App 构建。当前版本已按前后端分离方式整理数据入口：正式联调时，页面业务数据必须从后端 API 获取；本地 mock 只作为离线演示用途。
 
 ## 后端联调环境变量
@@ -8,6 +10,7 @@
 
 ```bash
 REACT_APP_API_BASE_URL=/api/v1
+REACT_APP_COLLECTOR_API_BASE_URL=http://127.0.0.1:8081
 REACT_APP_DATA_SOURCE=backend
 REACT_APP_DEMO_FLUCTUATION=false
 REACT_APP_AUTH_REQUIRED=true
@@ -17,6 +20,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 | 环境变量 | 示例 | 说明 |
 | --- | --- | --- |
 | `REACT_APP_API_BASE_URL` | `/api/v1` | 后端 API 基础地址。同域部署时使用 `/api/v1`；前后端分离部署时填写完整后端地址。 |
+| `REACT_APP_COLLECTOR_API_BASE_URL` | `http://127.0.0.1:8081` | Java 采集监控 API 地址，供“配置参数 → 通信映射”和实时链路状态条读取运行点表、采集值及 SQLite 队列。未配置时默认使用当前页面主机的 `8081` 端口。 |
 | `REACT_APP_DATA_SOURCE` | `backend` | 数据源模式。正式联调和生产环境使用 `backend`；离线演示才使用 `mock`。 |
 | `REACT_APP_DEMO_FLUCTUATION` | `false` | 演示波动开关。正式后端联调和生产环境使用 `false`；离线演示才使用 `true`。 |
 | `REACT_APP_AUTH_REQUIRED` | `true` | 登录门禁开关。正式联调和生产环境必须为 `true`；仅离线视觉开发可临时关闭。 |
@@ -26,6 +30,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 
 ```bash
 REACT_APP_API_BASE_URL=/api/v1
+REACT_APP_COLLECTOR_API_BASE_URL=http://127.0.0.1:8081
 REACT_APP_DATA_SOURCE=backend
 REACT_APP_DEMO_FLUCTUATION=false
 REACT_APP_AUTH_REQUIRED=true
@@ -36,6 +41,7 @@ REACT_APP_VESSEL_ID=MHM-TierIII-Demo
 
 ```bash
 REACT_APP_API_BASE_URL=http://127.0.0.1:8080/api/v1
+REACT_APP_COLLECTOR_API_BASE_URL=http://127.0.0.1:8081
 REACT_APP_DATA_SOURCE=backend
 REACT_APP_DEMO_FLUCTUATION=false
 REACT_APP_AUTH_REQUIRED=true

@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
 import { useLanguage } from "../hooks/useLanguage";
+import { apiRequest } from "../api/client";
+import { API_ENDPOINTS } from "../api/contracts";
 
 const text = {
   en: {
@@ -10,12 +12,12 @@ const text = {
     subtitle: "Real-time machinery, navigation, and alarm monitoring for connected vessels.",
     username: "Username",
     password: "Password",
-    usernamePlaceholder: "admin",
-    passwordPlaceholder: "admin123",
+    usernamePlaceholder: "Enter username",
+    passwordPlaceholder: "Enter password",
     signIn: "Sign In",
     signingIn: "Signing In",
     authentication: "Authentication",
-    demoAccount: "Default accounts: admin, operator, viewer",
+    noticeLabel: "Authorized use",
     required: "Username and password are required.",
     failed: "Login failed. Check the account or backend service.",
   },
@@ -25,12 +27,12 @@ const text = {
     subtitle: "面向联网船舶的主机、航行和报警实时监测平台。",
     username: "用户名",
     password: "密码",
-    usernamePlaceholder: "admin",
-    passwordPlaceholder: "admin123",
+    usernamePlaceholder: "请输入用户名",
+    passwordPlaceholder: "请输入密码",
     signIn: "登录",
     signingIn: "登录中",
     authentication: "身份认证",
-    demoAccount: "默认账号：admin、operator、viewer",
+    noticeLabel: "使用告知",
     required: "请输入用户名和密码。",
     failed: "登录失败，请检查账号或后端服务。",
   },
@@ -40,10 +42,23 @@ const LoginPage = () => {
   const { language } = useLanguage();
   const { login, status } = useAuth();
   const copy = text[language === "zh" ? "zh" : "en"];
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const isLoading = status === "authenticating";
+
+  useEffect(() => {
+    let active = true;
+    apiRequest(API_ENDPOINTS.loginNotice, { skipAuth: true })
+      .then((result) => {
+        if (active) setNotice(result?.data?.notice || "");
+      })
+      .catch(() => {
+        // Login remains available when the optional notice endpoint is unavailable.
+      });
+    return () => { active = false; };
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -93,6 +108,12 @@ const LoginPage = () => {
               <h2 className="mt-3 text-3xl font-black text-[#15232e]">{language === "zh" ? "用户登录" : "User Login"}</h2>
             </div>
 
+            {notice && (
+              <div role="note" className="mb-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+                <span className="font-bold text-slate-700">{copy.noticeLabel}: </span>{notice}
+              </div>
+            )}
+
             <div className="space-y-5">
               <label className="block">
                 <span className="mb-2 block text-xs font-bold text-slate-600">{copy.username}</span>
@@ -132,7 +153,6 @@ const LoginPage = () => {
               {isLoading ? copy.signingIn : copy.signIn}
             </button>
 
-            <p className="mt-5 text-center text-xs font-medium leading-5 text-slate-500">{copy.demoAccount}</p>
           </motion.form>
         </div>
       </div>

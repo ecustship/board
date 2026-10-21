@@ -1,6 +1,7 @@
 export const AUTH_SESSION_KEY = "marine_dashboard_auth";
 export const AUTH_CHANGED_EVENT = "marine-auth-session-change";
 export const AUTH_FORBIDDEN_EVENT = "marine-auth-forbidden";
+export const AUTH_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 const dispatchAuthChange = (session, reason) => {
   if (typeof window === "undefined") return;
@@ -17,6 +18,10 @@ export const getStoredAuth = () => {
     const session = JSON.parse(raw);
     if (!session?.accessToken) return null;
     if (session.expiresAt && Date.now() >= session.expiresAt) {
+      window.localStorage.removeItem(AUTH_SESSION_KEY);
+      return null;
+    }
+    if (session.lastActivityAt && Date.now() - session.lastActivityAt >= AUTH_IDLE_TIMEOUT_MS) {
       window.localStorage.removeItem(AUTH_SESSION_KEY);
       return null;
     }
@@ -38,6 +43,7 @@ export const saveAuthSession = (loginData) => {
     expiresAt: expiresIn > 0 ? Date.now() + expiresIn * 1000 : null,
     user: loginData?.user || null,
     savedAt: Date.now(),
+    lastActivityAt: Date.now(),
   };
 
   if (!session.accessToken) {
@@ -57,6 +63,13 @@ export const updateStoredUser = (user) => {
   window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(nextSession));
   dispatchAuthChange(nextSession, "user-refresh");
   return nextSession;
+};
+
+export const touchAuthActivity = (timestamp = Date.now()) => {
+  if (typeof window === "undefined") return;
+  const session = getStoredAuth();
+  if (!session?.accessToken) return;
+  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ ...session, lastActivityAt: timestamp }));
 };
 
 export const clearAuthSession = (reason = "logout") => {

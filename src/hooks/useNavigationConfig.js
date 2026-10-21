@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 // 默认配置值
 const defaultRealtimeDataConfig = {
-  refreshRate: 1000, // 200ms, 500ms, 1s, 2s 对应 200, 500, 1000, 2000
+  refreshRate: 500, // 200ms, 500ms, 1s, 2s 对应 200, 500, 1000, 2000
   smoothingFilter: 0.3, // 0.0-0.9
 };
 

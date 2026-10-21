@@ -24,6 +24,24 @@ const displayTime = (alarm, language) => {
   return alarm.time || alarm.resolvedTime || "--";
 };
 
+const severityLabel = (alarm, language) => {
+  const level = String(alarm.level || alarm.priority || "INFO").toUpperCase();
+  const labels = {
+    zh: { CRITICAL: "严重", WARNING: "警告", INFO: "信息" },
+    en: { CRITICAL: "Critical", WARNING: "Warning", INFO: "Info" },
+  };
+  return labels[language]?.[level] || level;
+};
+
+const statusLabel = (alarm, language) => {
+  const status = String(alarm.status || (alarm.resolved ? "RESET" : alarm.acknowledged ? "ACKNOWLEDGED" : "ACTIVE")).toUpperCase();
+  const labels = {
+    zh: { ACTIVE: "活动", ACKNOWLEDGED: "已确认未恢复", RESET: "已恢复" },
+    en: { ACTIVE: "Active", ACKNOWLEDGED: "Acknowledged", RESET: "Reset" },
+  };
+  return labels[language]?.[status] || status;
+};
+
 const Alarms = () => {
   const { t, language } = useLanguage();
   const { focusMode, toggleFocusMode } = useFocusMode();
@@ -52,7 +70,7 @@ const Alarms = () => {
   const filteredRows = alarmRows.filter((alarm) => {
     if (tab !== "all" && alarm.bucket !== tab) return false;
 
-    const text = `${alarm.source || ""} ${alarm.message || ""} ${alarm.pointCode || ""}`.toLowerCase();
+    const text = `${alarm.source || ""} ${alarm.message || ""} ${alarm.alarmName || ""} ${alarm.pointCode || ""} ${alarm.reason || ""} ${alarm.suggestion || ""}`.toLowerCase();
     if (query.trim() && !text.includes(query.trim().toLowerCase())) return false;
 
     const parsed = parseAlarmDate(alarm);
@@ -78,7 +96,7 @@ const Alarms = () => {
                 {t.alarmCenter}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-200">
-                {language === "zh" ? "报警只映射船端报警 bit，不在 UI 端判断阈值或处理现场故障。" : "Alarms map vessel-side alarm bits only; the UI does not judge thresholds or clear vessel faults."}
+                {language === "zh" ? "当前报警来自实时 Modbus 报警 bit，历史来自后端 RESET 事件；UI 不根据模拟值或阈值自行生成报警。" : "Current alarms come from live Modbus alarm bits; history comes from backend RESET events."}
               </p>
             </div>
             <button
@@ -159,18 +177,28 @@ const Alarms = () => {
                     >
                       <AlertTriangle className={`h-5 w-5 shrink-0 ${isActive ? "text-red-600 dark:text-red-300" : "text-slate-400 dark:text-slate-500"}`} />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{alarm.message}</div>
+                        <div className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{alarm.alarmName || alarm.message}</div>
                         <div className={`text-[11px] ${isActive ? "text-slate-500 dark:text-red-100/70" : "text-slate-500 dark:text-slate-400"}`}>
-                          {alarm.source || "--"} / {displayTime(alarm, language)}
+                          {alarm.source || "--"} / {alarm.pointCode || "--"} / {displayTime(alarm, language)}
                         </div>
+                        {alarm.message && alarm.message !== alarm.alarmName && (
+                          <div className="mt-1 truncate text-[10px] text-slate-500 dark:text-slate-400">{alarm.message}</div>
+                        )}
                       </div>
-                      <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${
-                        isActive
-                          ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200 dark:ring-1 dark:ring-red-500/25"
-                          : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300"
-                      }`}>
-                        {isActive ? t.alarmActive : t.alarmHistoryTab}
-                      </span>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${
+                          String(alarm.level).toUpperCase() === "CRITICAL"
+                            ? "bg-red-600 text-white"
+                            : String(alarm.level).toUpperCase() === "WARNING"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
+                        }`}>{severityLabel(alarm, language)}</span>
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${
+                          isActive
+                            ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200 dark:ring-1 dark:ring-red-500/25"
+                            : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300"
+                        }`}>{statusLabel(alarm, language)}</span>
+                      </div>
                     </motion.div>
                   );
                 })}
@@ -198,9 +226,9 @@ const Alarms = () => {
               {language === "zh" ? "报警状态规则" : "Alarm State Rule"}
             </div>
             <div className="space-y-2 text-xs text-slate-600 dark:text-on-surface-variant">
-              <div>{language === "zh" ? "1. bit=1 显示为活动报警。" : "1. bit=1 is displayed as Active."}</div>
-              <div>{language === "zh" ? "2. bit=0 或恢复后进入历史记录。" : "2. bit=0 or recovered state becomes History."}</div>
-              <div>{language === "zh" ? "3. UI 不做阈值判断。" : "3. The UI does not judge thresholds."}</div>
+              <div>{language === "zh" ? "1. 实时报警 bit=true 才显示为活动报警。" : "1. A live alarm is shown only when its bit is true."}</div>
+              <div>{language === "zh" ? "2. 只有后端 RESET 事件进入历史记录。" : "2. Only backend RESET events are shown as history."}</div>
+              <div>{language === "zh" ? "3. 控制电源等普通数字状态不会计为报警。" : "3. Normal digital states such as control power are not alarms."}</div>
               <div>{language === "zh" ? "4. 消音不改变报警状态。" : "4. Muting does not change alarm state."}</div>
             </div>
           </div>

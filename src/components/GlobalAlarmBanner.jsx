@@ -37,7 +37,7 @@ const GlobalAlarmBanner = ({ onOpenAlarms }) => {
   const activeAlarms = useMemo(
     () =>
       alarms.active
-        .filter((alarm) => !alarm.acknowledged)
+        .filter((alarm) => alarm.status === "ACTIVE" && !alarm.acknowledged)
         .sort((a, b) => {
           const aTime = new Date(a.timestamp || a.occurredAt || a.time || 0).getTime();
           const bTime = new Date(b.timestamp || b.occurredAt || b.time || 0).getTime();
@@ -100,7 +100,7 @@ const GlobalAlarmBanner = ({ onOpenAlarms }) => {
                 >
                   <span className="font-bold text-red-700 dark:text-red-100">{alarm.source}</span>
                   <span className="mx-1 text-red-300 dark:text-red-200">/</span>
-                  <span className="text-red-600 dark:text-red-100">{alarm.message}</span>
+                  <span className="text-red-600 dark:text-red-100">{alarm.alarmName || alarm.message}</span>
                 </button>
               ))}
             </div>

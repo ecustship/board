@@ -20,6 +20,8 @@ export const PERMISSIONS = {
   USER_UPDATE: "user:update",
   USER_DISABLE: "user:disable",
   USER_PASSWORD_RESET: "user:password-reset",
+  USER_UNLOCK: "user:unlock",
+  USER_DELETE: "user:delete",
   ROLE_READ: "role:read",
   ROLE_CREATE: "role:create",
   ROLE_UPDATE: "role:update",
@@ -32,6 +34,10 @@ export const PERMISSIONS = {
   REPORT_EXPORT: "report:export",
   AUDIT_READ: "audit:read",
   AUDIT_EXPORT: "audit:export",
+  BACKUP_READ: "backup:read",
+  BACKUP_CREATE: "backup:create",
+  BACKUP_EXPORT: "backup:export",
+  BACKUP_RESTORE: "backup:restore",
 };
 
 export const LEGACY_PERMISSION_ALIASES = {
@@ -60,6 +66,7 @@ export const LEGACY_PERMISSION_ALIASES = {
     PERMISSIONS.USER_UPDATE,
     PERMISSIONS.USER_DISABLE,
     PERMISSIONS.USER_PASSWORD_RESET,
+    PERMISSIONS.USER_UNLOCK,
     PERMISSIONS.ROLE_CREATE,
     PERMISSIONS.ROLE_UPDATE,
     PERMISSIONS.ROLE_DELETE,
@@ -136,6 +143,8 @@ export const ACCESS_GROUPS = [
       [PERMISSIONS.USER_UPDATE, "用户编辑"],
       [PERMISSIONS.USER_DISABLE, "用户停用"],
       [PERMISSIONS.USER_PASSWORD_RESET, "重置用户密码"],
+      [PERMISSIONS.USER_UNLOCK, "解锁用户账号"],
+      [PERMISSIONS.USER_DELETE, "删除用户"],
       [PERMISSIONS.ROLE_READ, "角色查看"],
       [PERMISSIONS.ROLE_CREATE, "角色创建"],
       [PERMISSIONS.ROLE_UPDATE, "角色编辑"],
@@ -151,6 +160,16 @@ export const ACCESS_GROUPS = [
       [PERMISSIONS.REPORT_EXPORT, "报告导出"],
       [PERMISSIONS.AUDIT_READ, "审计日志查看"],
       [PERMISSIONS.AUDIT_EXPORT, "审计日志导出"],
+    ],
+  },
+  {
+    key: "systemMaintenance",
+    name: "系统维护",
+    permissions: [
+      [PERMISSIONS.BACKUP_READ, "备份记录查看"],
+      [PERMISSIONS.BACKUP_CREATE, "创建系统备份"],
+      [PERMISSIONS.BACKUP_EXPORT, "导出系统备份"],
+      [PERMISSIONS.BACKUP_RESTORE, "恢复隔离数据库"],
     ],
   },
 ];
