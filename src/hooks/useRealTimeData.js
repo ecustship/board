@@ -20,9 +20,9 @@ const USE_BACKEND_API = USE_BACKEND && !USE_DEMO_FLUCTUATION;
 const USE_LOCAL_DEMO_DATA = !USE_BACKEND_API;
 const DEFAULT_VESSEL_ID = process.env.REACT_APP_VESSEL_ID || DEFAULT_API_CONTEXT.vesselId;
 const BACKEND_READY_ENDPOINTS = new Set([
-  API_ENDPOINTS.vessel,
   API_ENDPOINTS.engines,
-  API_ENDPOINTS.alarms,
+  API_ENDPOINTS.navigation,
+  API_ENDPOINTS.alarmHistory,
   API_ENDPOINTS.acknowledgeAlarm,
   API_ENDPOINTS.systemStatus,
   API_ENDPOINTS.trend,
@@ -307,13 +307,42 @@ const emptyValue = (value) => {
   return value;
 };
 
-const emptyVesselData = { ...emptyValue(initialVesselData), quality: "UNKNOWN", source: "" };
+const emptyNavigationVesselData = {
+  position: { lat: null, lon: null },
+  heading: null,
+  pitch: null,
+  roll: null,
+  cog: null,
+  sog: null,
+  wind: { direction: "", speed: null },
+  draft: { fore: null, aft: null },
+  fuelConsumption: null,
+  temperature: null,
+  humidity: null,
+  timestamp: "",
+  quality: "UNWIRED",
+  source: "PENDING_BACKEND_ROUTE",
+};
+const emptyNavigationData = {
+  route: { name: "", eta: "", distanceRemaining: null, distanceTraveled: null, waypoints: [] },
+  ais: [],
+  weather: {
+    wind: { speed: null, direction: "", gust: null },
+    sea: { state: "", waveHeight: null, swell: null },
+    visibility: null,
+    pressure: null,
+    trend: "",
+  },
+  timestamp: "",
+  quality: "UNWIRED",
+  source: "PENDING_BACKEND_ROUTE",
+};
 const emptyEngineData = Object.fromEntries(
   Object.entries(initialEngineData).map(([key, engine]) => [key, { ...emptyValue(engine), status: "unknown", alerts: [] }])
 );
 const emptySystemStatus = emptyValue(initialSystemStatus);
 
-const ALARMS_QUERY = { includeHistory: true };
+const ALARMS_QUERY = { page: 1, pageSize: 100 };
 const ENGINE_META_KEYS = new Set(["timestamp", "quality", "source"]);
 
 const readValue = (value, fallback) => {
@@ -371,7 +400,7 @@ const readHistoricalBoolean = (source, prefix, suffix, fallback, aliases = []) =
 
 const normalizeVesselData = (data) => {
   const source = data || {};
-  const fallback = USE_BACKEND_API ? emptyVesselData : initialVesselData;
+  const fallback = USE_BACKEND_API ? emptyNavigationVesselData : initialVesselData;
   const position = source.position || {};
   const wind = source.wind || {};
   const draft = source.draft || {};
@@ -725,52 +754,124 @@ const normalizeEngineData = (data) => {
   };
 };
 
-const normalizeNavigationData = (data) => ({
-  ...initialNavigationData,
+const normalizeNavigationData = (data) => {
+  const fallback = USE_BACKEND_API ? emptyNavigationData : initialNavigationData;
+  return {
+  ...fallback,
   ...(data || {}),
   route: {
-    ...initialNavigationData.route,
+    ...fallback.route,
     ...(data?.route || {}),
   },
-  ais: data?.ais || initialNavigationData.ais,
+  ais: data?.ais || fallback.ais,
   weather: {
-    ...initialNavigationData.weather,
+    ...fallback.weather,
     ...(data?.weather || {}),
     wind: {
-      ...initialNavigationData.weather.wind,
+      ...fallback.weather.wind,
       ...(data?.weather?.wind || {}),
     },
     sea: {
-      ...initialNavigationData.weather.sea,
+      ...fallback.weather.sea,
       ...(data?.weather?.sea || {}),
     },
   },
-});
+  };
+};
 
-const normalizeAlarm = (alarm) => ({
-  id: alarm.id || alarm.alarmId || alarm.pointCode || `${alarm.source}-${alarm.time}`,
-  time: alarm.time || alarm.timestamp || alarm.occurredAt || "",
-  source: alarm.source || alarm.deviceName || alarm.deviceGroup || "",
-  sourceZh: alarm.sourceZh || alarm.sourceCn || alarm.deviceNameZh || "",
-  sourceEn: alarm.sourceEn || alarm.deviceNameEn || "",
-  pointCode: alarm.pointCode,
-  type: alarm.type || alarm.level || "info",
-  priority: alarm.priority || alarm.severity || "low",
-  message: alarm.message || alarm.displayNameZh || alarm.pointName || alarm.pointCode || "",
-  messageZh: alarm.messageZh || alarm.messageCn || alarm.displayNameZh || "",
-  messageEn: alarm.messageEn || alarm.displayNameEn || "",
-  acknowledged: Boolean(alarm.acknowledged || alarm.ackAt || alarm.status === "ACKNOWLEDGED"),
-  resolved: Boolean(alarm.resolved || alarm.resetAt || alarm.status === "RESET"),
-  resolvedTime: alarm.resolvedTime || alarm.resolvedAt,
-});
+const alarmPriority = (alarm) => {
+  if (alarm.priority) return String(alarm.priority).toLowerCase();
+  const level = String(alarm.level || alarm.severity || "").toUpperCase();
+  if (level === "CRITICAL") return "critical";
+  if (level === "WARNING") return "high";
+  return "low";
+};
+
+const normalizeAlarm = (alarm = {}) => {
+  const status = String(alarm.status || (alarm.resolved ? "RESET" : alarm.acknowledged ? "ACKNOWLEDGED" : "ACTIVE")).toUpperCase();
+  const pointCode = alarm.pointCode || alarm.tagCode || "";
+  const timestamp = alarm.timestamp || alarm.occurredAt || alarm.time || "";
+  const level = String(alarm.level || alarm.type || "INFO").toUpperCase();
+  return {
+    ...alarm,
+    id: alarm.id || alarm.alarmId || pointCode || `${alarm.engineCode || alarm.source || "alarm"}-${timestamp}`,
+    time: timestamp,
+    timestamp,
+    occurredAt: alarm.occurredAt || timestamp,
+    source: alarm.deviceName || alarm.deviceGroup || alarm.engineCode || alarm.source || "",
+    eventSource: alarm.eventSource || (alarm.engineCode && alarm.source ? alarm.source : ""),
+    sourceZh: alarm.sourceZh || alarm.sourceCn || alarm.deviceNameZh || "",
+    sourceEn: alarm.sourceEn || alarm.deviceNameEn || "",
+    pointCode,
+    type: String(alarm.type || (level === "CRITICAL" ? "alarm" : level === "WARNING" ? "warning" : "info")).toLowerCase(),
+    level,
+    priority: alarmPriority(alarm),
+    status,
+    message: alarm.message || alarm.alarmName || alarm.displayNameZh || alarm.pointName || pointCode,
+    messageZh: alarm.messageZh || alarm.messageCn || alarm.displayNameZh || alarm.alarmName || "",
+    messageEn: alarm.messageEn || alarm.displayNameEn || "",
+    acknowledged: Boolean(alarm.acknowledged || alarm.ackAt || status === "ACKNOWLEDGED" || status === "RESET"),
+    resolved: Boolean(alarm.resolved || alarm.resetAt || status === "RESET"),
+    resolvedTime: alarm.resolvedTime || alarm.resolvedAt || alarm.resetAt || "",
+  };
+};
 
 const normalizeAlarmsData = (data) => {
   const source = data?.alarms || data || {};
+  if (Array.isArray(source.items)) {
+    const items = source.items.map(normalizeAlarm);
+    return {
+      timestamp: items.reduce((latest, alarm) => alarm.timestamp > latest ? alarm.timestamp : latest, ""),
+      active: items.filter((alarm) => alarm.status === "ACTIVE" || alarm.status === "ACKNOWLEDGED"),
+      history: items.filter((alarm) => alarm.status === "RESET"),
+    };
+  }
+  const active = (source.active || []).map(normalizeAlarm);
+  const activeIds = new Set(active.map((alarm) => alarm.id));
   return {
     timestamp: source.timestamp || data?.timestamp,
-    active: (source.active || []).map(normalizeAlarm),
-    history: (source.history || []).map(normalizeAlarm),
+    active,
+    history: (source.history || [])
+      .map(normalizeAlarm)
+      .filter((alarm) => alarm.resolved && !activeIds.has(alarm.id)),
   };
+};
+
+const ALARM_BIT_FIELDS = [
+  { field: "expansionTankLowAlarm", suffix: "ENGINE_EXPANSION_TANK_LEVEL_LOW_ALARM", level: "WARNING", zh: "膨胀水箱液位低报警", en: "Expansion tank level low alarm" },
+  { field: "lowLubOilShutdownBelow1500", suffix: "LOW_LUB_OIL_PRESSURE_SHUTDOWN_BELOW_1500RPM", level: "CRITICAL", zh: "1500RPM 以下滑油压力低停机", en: "Low lube oil pressure shutdown below 1500RPM" },
+  { field: "lowLubOilShutdownAbove1500", suffix: "LOW_LUB_OIL_PRESSURE_SHUTDOWN_ABOVE_1500RPM", level: "CRITICAL", zh: "1500RPM 以上滑油压力低停机", en: "Low lube oil pressure shutdown above 1500RPM" },
+  { field: "highCoolantTemperatureShutdown", suffix: "HIGH_COOLANT_TEMPERATURE_SHUTDOWN", level: "CRITICAL", zh: "冷却液温度高停机", en: "High coolant temperature shutdown" },
+  { field: "fuelLeakageAlarm", suffix: "FUEL_LEAKAGE_ALARM", level: "WARNING", zh: "燃油泄漏报警", en: "Fuel leakage alarm" },
+  { field: "overspeedShutdown", suffix: "OVERSPEED_SHUTDOWN", level: "CRITICAL", zh: "超速停机", en: "Overspeed shutdown" },
+  { field: "localEmergencyStop", suffix: "LOCAL_EMERGENCY_STOP", level: "CRITICAL", zh: "本地紧急停机", en: "Local emergency stop" },
+  { field: "remoteEmergencyStop", suffix: "REMOTE_EMERGENCY_STOP", level: "CRITICAL", zh: "远程紧急停机", en: "Remote emergency stop" },
+];
+
+const normalizeLiveAlarmBits = (data) => {
+  const engines = normalizeEngineData(data);
+  return Object.entries(engines).flatMap(([engineId, engine]) => {
+    if (engineId === "__meta" || !engine || typeof engine !== "object") return [];
+    const engineCode = engine.historicalSource || ENGINE_ID_TO_HISTORICAL_PREFIX[engineId] || String(engineId).toUpperCase();
+    return ALARM_BIT_FIELDS
+      .filter((definition) => engine[definition.field] === true)
+      .map((definition) => normalizeAlarm({
+        id: `live-${engineCode}-${definition.suffix}`,
+        alarmName: definition.zh,
+        alarmNameZh: definition.zh,
+        alarmNameEn: definition.en,
+        engineCode,
+        tagCode: `${engineCode}_${definition.suffix}`,
+        level: definition.level,
+        status: "ACTIVE",
+        message: definition.en,
+        messageZh: definition.zh,
+        messageEn: definition.en,
+        occurredAt: engine.timestamp || data?.timestamp || "",
+        quality: engine.quality || data?.quality || "",
+        eventSource: engine.source || data?.source || "MODBUS",
+      }));
+  });
 };
 
 const normalizeSystemStatus = (data) => ({
@@ -866,7 +967,7 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
   const [data, setData] = useState(initialVesselData);
   const prevDataRef = useRef(initialVesselData);
   const backendResource = useBackendResource(
-    API_ENDPOINTS.vessel,
+    API_ENDPOINTS.navigation,
     updateInterval,
     initialVesselData,
     normalizeVesselData
@@ -916,8 +1017,13 @@ export const useVesselData = (updateInterval = 1000, config = {}) => {
     return () => clearInterval(interval);
   }, [updateInterval, smoothingFilter]);
 
+  const navigationEndpointReady = BACKEND_READY_ENDPOINTS.has(API_ENDPOINTS.navigation);
+  const unwiredResource = { status: "success", loading: false, refreshing: false, online: false, error: "", reload: () => {} };
   return USE_BACKEND_API
-    ? { ...(backendResource.data || pendingBackendRoute(emptyVesselData, API_ENDPOINTS.vessel)), __resource: resourceState(backendResource) }
+    ? {
+        ...(backendResource.data || pendingBackendRoute(emptyNavigationVesselData, API_ENDPOINTS.navigation)),
+        __resource: navigationEndpointReady ? resourceState(backendResource) : unwiredResource,
+      }
     : data;
 };
 
@@ -1094,7 +1200,7 @@ export const useNavigationData = (updateInterval = 3000) => {
     return () => clearInterval(interval);
   }, [updateInterval]);
 
-  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(initialNavigationData, API_ENDPOINTS.navigation) : data;
+  return USE_BACKEND_API ? backendResource.data || pendingBackendRoute(emptyNavigationData, API_ENDPOINTS.navigation) : data;
 };
 
 // 自定义钩子：实时警报数据
@@ -1103,11 +1209,17 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
   const [acknowledgedIds, setAcknowledgedIds] = useState(() => new Set());
   const alarmIdRef = useRef(200);
   const backendResource = useBackendResource(
-    API_ENDPOINTS.alarms,
+    API_ENDPOINTS.alarmHistory,
     updateInterval,
     initialAlarmsData,
     normalizeAlarmsData,
     { query: ALARMS_QUERY }
+  );
+  const liveBitsResource = useBackendResource(
+    API_ENDPOINTS.engines,
+    updateInterval,
+    [],
+    normalizeLiveAlarmBits
   );
 
   const localizeSource = useCallback(
@@ -1185,17 +1297,26 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
   );
 
   const localizeAlarm = useCallback(
-    (alarm) => ({
-      ...alarm,
-      source: language === "zh"
-        ? alarm.sourceZh || localizeSource(alarm.source)
-        : alarm.sourceEn || localizeSource(alarm.source),
-      message: localizeMessage(alarm.message, alarm),
-    }),
+    (alarm) => {
+      const message = localizeMessage(alarm.message, alarm);
+      return {
+        ...alarm,
+        source: language === "zh"
+          ? alarm.sourceZh || localizeSource(alarm.source)
+          : alarm.sourceEn || localizeSource(alarm.source),
+        alarmName: language === "zh"
+          ? alarm.alarmNameZh || alarm.alarmName || message
+          : alarm.alarmNameEn || alarm.alarmName || message,
+        message,
+      };
+    },
     [language, localizeSource, localizeMessage]
   );
 
-  const alarmSource = USE_BACKEND_API ? backendResource.data || { active: [], history: [] } : alarms;
+  const eventSource = USE_BACKEND_API ? backendResource.data || { active: [], history: [] } : alarms;
+  const alarmSource = USE_BACKEND_API
+    ? { active: liveBitsResource.data || [], history: eventSource.history || [] }
+    : alarms;
 
   // expose localized alarms to consumers
   const localizedAlarms = {
@@ -1283,14 +1404,29 @@ export const useAlarmsData = (updateInterval = 5000, language = "en") => {
   const resetAlarm = useCallback(async (id) => {
     if (!USE_BACKEND_API) return;
     await apiRequest(buildApiPath(API_ENDPOINTS.resetAlarm, { alarmId: id }), { method: "POST" });
-    await backendResource.reload();
-  }, [backendResource]);
+    await Promise.all([backendResource.reload(), liveBitsResource.reload()]);
+  }, [backendResource, liveBitsResource]);
+
+  const combinedResource = USE_BACKEND_API ? {
+    status: [backendResource, liveBitsResource].some((resource) => resource.status === "error")
+      ? "error"
+      : [backendResource, liveBitsResource].some((resource) => resource.status === "loading" || resource.status === "idle")
+      ? "loading"
+      : [backendResource, liveBitsResource].some((resource) => resource.status === "refreshing")
+      ? "refreshing"
+      : "success",
+    loading: backendResource.loading || liveBitsResource.loading,
+    refreshing: backendResource.refreshing || liveBitsResource.refreshing,
+    online: backendResource.online && liveBitsResource.online,
+    error: backendResource.error?.message || liveBitsResource.error?.message || "",
+    reload: () => Promise.all([backendResource.reload(), liveBitsResource.reload()]),
+  } : { status: "success", online: true };
 
   return {
     alarms: localizedAlarms,
     acknowledgeAlarm,
     resetAlarm,
-    resource: USE_BACKEND_API ? resourceState(backendResource) : { status: "success", online: true },
+    resource: combinedResource,
   };
 };
 

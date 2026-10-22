@@ -4,10 +4,12 @@ import { API_ENDPOINTS } from "../api/contracts";
 import {
   AUTH_CHANGED_EVENT,
   AUTH_FORBIDDEN_EVENT,
+  AUTH_IDLE_TIMEOUT_MS,
   AUTH_SESSION_KEY,
   clearAuthSession,
   getStoredAuth,
   saveAuthSession,
+  touchAuthActivity,
   updateStoredUser,
 } from "../api/authSession";
 import { expandPermissions } from "../auth/permissions";
@@ -30,7 +32,7 @@ export const AuthProvider = ({ children }) => {
       return envelope.data;
     } catch (refreshError) {
       setError(refreshError);
-      if (refreshError?.status !== 401) setStatus("authenticated");
+      setStatus(refreshError?.status === 401 ? "anonymous" : "authenticated");
       throw refreshError;
     }
   }, []);
@@ -59,6 +61,31 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener(AUTH_FORBIDDEN_EVENT, handleForbidden);
     };
   }, [refreshUser]);
+
+  useEffect(() => {
+    if (!session?.accessToken) return undefined;
+
+    let lastActivityAt = Number(session.lastActivityAt || Date.now());
+    const markActivity = () => {
+      lastActivityAt = Date.now();
+      touchAuthActivity(lastActivityAt);
+    };
+    const checkIdle = () => {
+      if (Date.now() - lastActivityAt < AUTH_IDLE_TIMEOUT_MS) return;
+      clearAuthSession("idle-timeout");
+      setSession(null);
+      setStatus("anonymous");
+      setError(null);
+    };
+    const activityEvents = ["pointerdown", "keydown", "scroll", "touchstart"];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, markActivity, { passive: true }));
+    const timer = window.setInterval(checkIdle, 30 * 1000);
+    checkIdle();
+    return () => {
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, markActivity));
+      window.clearInterval(timer);
+    };
+  }, [session?.accessToken, session?.lastActivityAt]);
 
   const login = useCallback(async ({ username, password }) => {
     setStatus("authenticating");

@@ -1,11 +1,14 @@
 const exactMessages = {
   "username already exists": "用户名已存在",
   "cannot disable current user": "不能停用当前登录账号",
+  "cannot delete current user": "不能删除当前登录账号",
   "cannot remove current user's ADMIN role": "不能移除自己的管理员角色",
   "cannot disable or demote the last enabled admin": "系统必须保留至少一个启用的管理员",
+  "cannot delete the last enabled admin": "系统必须保留至少一个启用的管理员",
   "at least one role is required": "请至少选择一个角色",
   "username must be 3 to 32 letters, digits, or underscores": "用户名需为 3-32 位字母、数字或下划线",
   "password must be 8 to 64 characters": "密码需为 8-64 位字符",
+  "password does not meet complexity policy": "密码不符合复杂度策略",
   "displayName must be 1 to 64 characters": "显示名需为 1-64 个字符",
   "oldPassword is incorrect": "旧密码错误",
   "user not found": "用户不存在",
@@ -17,6 +20,7 @@ const exactMessages = {
   "role not found": "角色不存在",
   "permission denied": "当前账号无权限执行此操作",
   "invalid username or password": "用户名或密码错误",
+  "password change required": "首次登录必须先修改密码",
 };
 
 export const getChineseApiError = (error, fallback = "操作失败，请稍后重试") => {

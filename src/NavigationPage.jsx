@@ -54,13 +54,25 @@ const WIND_DIRECTION_ZH = {
 };
 
 const localizeDirection = (direction, language) => {
+  if (!direction) return "--";
   if (language !== "zh") return direction;
   const key = String(direction || "").trim().toUpperCase();
   return WIND_DIRECTION_ZH[key] || direction;
 };
 
+const hasNumber = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+const formatNumber = (value, digits = 0) => hasNumber(value) ? Number(value).toFixed(digits) : "--";
+const formatPosition = (position, spaced = false) => {
+  if (!hasNumber(position?.lat) || !hasNumber(position?.lon)) return "--";
+  const separator = spaced ? " / " : "/";
+  const latitude = Number(position.lat);
+  const longitude = Number(position.lon);
+  return `${Math.abs(latitude).toFixed(3)}°${latitude < 0 ? "S" : "N"}${separator}${Math.abs(longitude).toFixed(3)}°${longitude < 0 ? "W" : "E"}`;
+};
+
 const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
-  const numericValue = Number(value) || 0;
+  const available = hasNumber(value);
+  const numericValue = available ? Number(value) : 0;
   const numericMax = Number(max) > 0 ? Number(max) : 1;
   const pct = Math.max(0, Math.min(numericValue / numericMax, 1));
   const angle = -135 + pct * 270;
@@ -83,7 +95,7 @@ const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
           <motion.path
             d={gaugePath}
             fill="none"
-            stroke={color}
+            stroke={available ? color : "#94a3b8"}
             strokeWidth="9"
             strokeLinecap="round"
             pathLength="1"
@@ -98,12 +110,12 @@ const DialGauge = ({ label, value, unit, max, icon, color = "#4CD7D0" }) => {
             x2="60"
             y2="22"
             stroke="currentColor"
-            className="text-[#1A1B1F] dark:text-white"
+            className={available ? "text-[#1A1B1F] dark:text-white" : "text-slate-400 opacity-40"}
             strokeWidth="4"
             strokeLinecap="round"
             transform={`rotate(${angle} 60 60)`}
           />
-          <circle cx="60" cy="60" r="5" fill={color} />
+          <circle cx="60" cy="60" r="5" fill={available ? color : "#94a3b8"} />
         </svg>
         <div className="absolute bottom-4 text-center">
           <div className="text-xl font-black text-on-background">{value}</div>
@@ -134,7 +146,7 @@ const NavigationPage = () => {
 
   const systemStatus = useSystemStatus(1500);
   const { alarms, resource: alarmsResource } = useAlarmsData(5000, language);
-  const timestampValue = vesselData.timestamp || systemStatus.timestamp;
+  const timestampValue = vesselData.timestamp;
   const latestDataTimestamp = timestampValue ? new Date(timestampValue) : null;
   const nextRefreshAt = latestDataTimestamp ? new Date(latestDataTimestamp.getTime() + realtimeDataConfig.refreshRate) : null;
   const backendRoutePending = vesselData.backendRouteReady === false || systemStatus.backendRouteReady === false;
@@ -151,7 +163,7 @@ const NavigationPage = () => {
   const availablePower = Math.max(0, generatorCapacity - totalGeneratorPower);
   const generatorPowerLabel = totalGeneratorPower >= 1000 ? `${(totalGeneratorPower / 1000).toFixed(1)}MW` : `${totalGeneratorPower}kW`;
   const generatorPowerPct = Math.max(0, Math.min(totalGeneratorPower / generatorCapacity, 1));
-  const rollValue = Number(vesselData.roll ?? 0);
+  const rollValue = formatNumber(vesselData.roll, 1);
   const windAngle = windDirectionAngle(vesselData.wind.direction);
   const windAngleLabel = windAngle === null ? "--" : `${windAngle.toFixed(windAngle % 1 === 0 ? 0 : 1)}°`;
 
@@ -165,35 +177,41 @@ const NavigationPage = () => {
     [item.key]: language === "zh" ? item.labelZh : item.labelEn,
   }), {});
 
-  const navigationAlarms = [...(alarms.active || [])].slice(0, 5);
+  const navigationAlarms = (alarms.active || [])
+    .filter((alarm) => alarm.status === "ACTIVE" && !alarm.acknowledged)
+    .slice(0, 5);
 
   const dataCards = [
     {
       key: "bow",
       icon: <Compass className="w-4 h-4 text-primary-container shrink-0" />,
       label: language === "zh" ? "船首信息" : "Bow Heading",
-      value: `${vesselData.heading}°`,
+      value: hasNumber(vesselData.heading) ? `${formatNumber(vesselData.heading, 0)}°` : "--",
       detail: language === "zh" ? "正北为 0°" : "North = 0°",
     },
     {
       key: "gps",
       icon: <MapPin className="w-4 h-4 text-primary-container shrink-0" />,
       label: "GPS",
-      value: `${vesselData.position.lat.toFixed(3)}° N / ${vesselData.position.lon.toFixed(3)}° E`,
+      value: formatPosition(vesselData.position, true),
       detail: language === "zh" ? "经纬度同框显示" : "Latitude / Longitude",
     },
     {
       key: "wind",
       icon: <Wind className="w-4 h-4 text-primary-container shrink-0" />,
       label: language === "zh" ? "风速风向" : "Wind Speed / Direction",
-      value: `${vesselData.wind.speed} ${t.knots} / ${windAngleLabel}`,
-      detail: language === "zh" ? `来向 ${localizeDirection(vesselData.wind.direction, language)}` : `From ${vesselData.wind.direction}`,
+      value: hasNumber(vesselData.wind?.speed) ? `${formatNumber(vesselData.wind.speed, 0)} ${t.knots} / ${windAngleLabel}` : "--",
+      detail: vesselData.wind?.direction
+        ? language === "zh" ? `来向 ${localizeDirection(vesselData.wind.direction, language)}` : `From ${vesselData.wind.direction}`
+        : language === "zh" ? "导航风速风向未接入" : "Navigation wind data not connected",
     },
     {
       key: "attitude",
       icon: <Navigation className="w-4 h-4 text-primary-container shrink-0" />,
       label: t.vesselMotion,
-      value: `${t.pitch} ${Number(vesselData.pitch || 0).toFixed(1)}° / ${t.roll} ${rollValue.toFixed(1)}°`,
+      value: hasNumber(vesselData.pitch) && hasNumber(vesselData.roll)
+        ? `${t.pitch} ${formatNumber(vesselData.pitch, 1)}° / ${t.roll} ${rollValue}°`
+        : "--",
       detail: language === "zh" ? "暂不显示升沉" : "Heave hidden for now",
     },
     {
@@ -228,10 +246,10 @@ const NavigationPage = () => {
         <div className="bg-surface-container-lowest dark:bg-surface-container-lowest rounded-xl p-3 shadow-sm flex-1 min-h-0 flex flex-col">
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-2">
             {[
-              { label: "GPS", value: `${vesselData.position.lat.toFixed(3)}°N / ${vesselData.position.lon.toFixed(3)}°E`, icon: <MapPin className="h-4 w-4" /> },
+              { label: "GPS", value: formatPosition(vesselData.position, true), icon: <MapPin className="h-4 w-4" /> },
               { label: language === "zh" ? "本地时间" : "Local Time", value: latestDataTimestamp?.toLocaleTimeString(language === "zh" ? "zh-CN" : "en-US", { hour12: false }) || "--", icon: <Navigation className="h-4 w-4" /> },
               { label: t.totalGeneratorPower, value: generatorPowerLabel, icon: <Gauge className="h-4 w-4" /> },
-              { label: language === "zh" ? "船速" : "Speed", value: `${vesselData.sog.toFixed(1)} ${t.knots}`, icon: <Compass className="h-4 w-4" /> },
+              { label: language === "zh" ? "船速" : "Speed", value: hasNumber(vesselData.sog) ? `${formatNumber(vesselData.sog, 1)} ${t.knots}` : "--", icon: <Compass className="h-4 w-4" /> },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-surface-container-low">
                 <div className="flex min-w-0 items-center gap-2 text-primary-container">
@@ -394,7 +412,7 @@ const NavigationPage = () => {
           <div className="mt-3 grid shrink-0 grid-cols-3 gap-3">
             <DialGauge
               label={t.speedSog}
-              value={vesselData.sog.toFixed(1)}
+              value={hasNumber(vesselData.sog) ? formatNumber(vesselData.sog, 1) : "--"}
               unit={t.knots}
               max={20}
               icon={<Gauge className="h-4 w-4" />}
@@ -402,7 +420,7 @@ const NavigationPage = () => {
             />
             <DialGauge
               label={language === "zh" ? "发动机转速" : "Engine RPM"}
-              value={mainEngine.rpm || 0}
+              value={hasNumber(mainEngine.rpm) ? mainEngine.rpm : "--"}
               unit="RPM"
               max={1200}
               icon={<RotateCw className="h-4 w-4" />}
@@ -410,7 +428,7 @@ const NavigationPage = () => {
             />
             <DialGauge
               label={language === "zh" ? "发动机温度" : "Engine Temp"}
-              value={mainEngine.exhaustTemp?.toFixed(0) || 0}
+              value={hasNumber(mainEngine.exhaustTemp) ? formatNumber(mainEngine.exhaustTemp, 0) : "--"}
               unit="°C"
               max={520}
               icon={<Thermometer className="h-4 w-4" />}
@@ -491,7 +509,7 @@ const NavigationPage = () => {
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#4CD7D0] shadow-[0_0_8px_rgba(76,215,208,0.9)]" />
+                  <span className={`h-2 w-2 rounded-full ${backendRoutePending ? "bg-amber-400" : "bg-[#4CD7D0] shadow-[0_0_8px_rgba(76,215,208,0.9)]"}`} />
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
                     {language === "zh" ? "时间戳更新节点" : "Timestamp Node"}
                   </span>

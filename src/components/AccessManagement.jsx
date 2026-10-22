@@ -11,6 +11,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  Unlock,
   UserCog,
   X,
 } from "lucide-react";
@@ -18,17 +19,20 @@ import {
   createRole,
   createUser,
   deleteRole,
+  deleteUser,
   getUser,
   listPermissions,
   listRoles,
   listUsers,
   resetUserPassword,
+  unlockUser,
   updateRole,
   updateUser,
 } from "../api/accessManagementApi";
 import { getChineseApiError } from "../api/errorMessages";
 import { useAuth } from "../hooks/useAuth";
 import { ACCESS_GROUPS, PERMISSIONS, permissionLabel } from "../auth/permissions";
+import { validatePasswordPolicy } from "../auth/passwordPolicy";
 
 const PAGE_SIZE = 20;
 
@@ -89,7 +93,10 @@ const UserForm = ({ user, roles, onClose, onSaved }) => {
     event.preventDefault();
     setError("");
     if (!editing && !/^[A-Za-z0-9_]{3,32}$/.test(form.username)) return setError("用户名需为 3-32 位字母、数字或下划线");
-    if (!editing && (form.password.length < 8 || form.password.length > 64)) return setError("密码需为 8-64 位字符");
+    if (!editing) {
+      const passwordError = validatePasswordPolicy(form.username, form.password);
+      if (passwordError) return setError(passwordError);
+    }
     if (!form.displayName.trim() || form.displayName.trim().length > 64) return setError("显示名需为 1-64 个字符");
     if (!form.roles.length) return setError("请至少选择一个角色");
 
@@ -139,7 +146,8 @@ const PasswordReset = ({ user, onClose, onSaved }) => {
   const [submitting, setSubmitting] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
-    if (password.length < 8 || password.length > 64) return setError("新密码需为 8-64 位字符");
+    const passwordError = validatePasswordPolicy(user.username, password);
+    if (passwordError) return setError(passwordError);
     setSubmitting(true);
     try {
       await resetUserPassword(user.userId, password);
@@ -251,10 +259,12 @@ const RoleForm = ({ role, permissions, onClose, onSaved }) => {
 };
 
 const AccessManagement = ({ onExit }) => {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user: currentUser } = useAuth();
   const canCreateUser = hasPermission(PERMISSIONS.USER_CREATE);
   const canUpdateUser = hasPermission(PERMISSIONS.USER_UPDATE);
   const canResetPassword = hasPermission(PERMISSIONS.USER_PASSWORD_RESET);
+  const canUnlockUser = hasPermission(PERMISSIONS.USER_UNLOCK);
+  const canDeleteUser = hasPermission(PERMISSIONS.USER_DELETE);
   const canReadRoles = hasPermission(PERMISSIONS.ROLE_READ);
   const canCreateRole = hasPermission(PERMISSIONS.ROLE_CREATE);
   const canUpdateRole = hasPermission(PERMISSIONS.ROLE_UPDATE);
@@ -275,6 +285,7 @@ const AccessManagement = ({ onExit }) => {
   const [passwordUser, setPasswordUser] = useState(null);
   const [roleEditor, setRoleEditor] = useState(undefined);
   const [deletingRole, setDeletingRole] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(null);
   const [userDetail, setUserDetail] = useState(null);
 
   const loadReferences = useCallback(async () => {
@@ -335,6 +346,19 @@ const AccessManagement = ({ onExit }) => {
     }
   };
 
+  const removeUser = async () => {
+    if (!deletingUser) return;
+    try {
+      await deleteUser(deletingUser.userId);
+      setDeletingUser(null);
+      setNotice("用户已删除");
+      await reload();
+    } catch (requestError) {
+      setError(getChineseApiError(requestError));
+      setDeletingUser(null);
+    }
+  };
+
   const showUserDetail = async (item) => {
     setUserDetail({ loading: true, user: item, error: "" });
     try {
@@ -373,9 +397,9 @@ const AccessManagement = ({ onExit }) => {
             {canCreateUser && <button onClick={() => setUserEditor(null)} className="flex h-9 items-center gap-2 rounded-md bg-[#0058bc] px-4 text-xs font-bold text-white"><Plus className="h-4 w-4" />新建用户</button>}
           </div>
           <div className="min-h-0 flex-1 overflow-auto border border-slate-200 bg-white dark:border-white/10 dark:bg-surface-container-lowest">
-            <table className="min-w-[880px] w-full border-collapse text-left text-xs">
-              <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase text-slate-500 dark:bg-surface-container-low"><tr><th className="px-4 py-3">用户</th><th className="px-4 py-3">角色</th><th className="px-4 py-3">状态</th><th className="px-4 py-3">创建时间</th><th className="px-4 py-3 text-right">操作</th></tr></thead>
-              <tbody>{users.items.map((item) => <tr key={item.userId} className="border-t border-slate-100 dark:border-white/5"><td className="px-4 py-3"><div className="font-black text-slate-800 dark:text-on-surface">{item.displayName}</div><div className="font-mono text-[10px] text-slate-400">{item.username} / {item.userId}</div></td><td className="px-4 py-3"><div className="flex flex-wrap gap-1">{item.roles.map((role) => <span key={role} className="rounded bg-slate-100 px-2 py-1 font-mono text-[10px] font-bold text-slate-600">{role}</span>)}</div></td><td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 font-bold ${item.enabled ? "text-emerald-700" : "text-slate-400"}`}><span className={`h-2 w-2 rounded-full ${item.enabled ? "bg-emerald-500" : "bg-slate-300"}`} />{item.enabled ? "启用" : "停用"}</span></td><td className="px-4 py-3 text-slate-500">{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })}</td><td className="px-4 py-3"><div className="flex justify-end gap-1"><button onClick={() => showUserDetail(item)} className="p-2 text-slate-500 hover:text-[#0058bc]" title="查看详情"><Eye className="h-4 w-4" /></button>{canUpdateUser && <button onClick={() => setUserEditor(item)} className="p-2 text-slate-500 hover:text-[#0058bc]" title="编辑"><Pencil className="h-4 w-4" /></button>}{canResetPassword && <button onClick={() => setPasswordUser(item)} className="p-2 text-slate-500 hover:text-[#0058bc]" title="重置密码"><KeyRound className="h-4 w-4" /></button>}</div></td></tr>)}</tbody>
+              <table className="min-w-[1160px] w-full border-collapse text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase text-slate-500 dark:bg-surface-container-low"><tr><th className="px-4 py-3">用户</th><th className="px-4 py-3">角色</th><th className="px-4 py-3">状态</th><th className="px-4 py-3">认证状态</th><th className="px-4 py-3">密码修改时间</th><th className="px-4 py-3">创建时间</th><th className="px-4 py-3 text-right">操作</th></tr></thead>
+              <tbody>{users.items.map((item) => <tr key={item.userId} className="border-t border-slate-100 dark:border-white/5"><td className="px-4 py-3"><div className="font-black text-slate-800 dark:text-on-surface">{item.displayName}</div><div className="font-mono text-[10px] text-slate-400">{item.username} / {item.userId}</div></td><td className="px-4 py-3"><div className="flex flex-wrap gap-1">{item.roles.map((role) => <span key={role} className="rounded bg-slate-100 px-2 py-1 font-mono text-[10px] font-bold text-slate-600">{role}</span>)}</div></td><td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 font-bold ${item.enabled ? "text-emerald-700" : "text-slate-400"}`}><span className={`h-2 w-2 rounded-full ${item.enabled ? "bg-emerald-500" : "bg-slate-300"}`} />{item.enabled ? "启用" : "停用"}</span></td><td className="px-4 py-3"><div className="space-y-1">{item.mustChangePassword && <span className="inline-flex rounded bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">首次改密</span>}{item.lockedUntil && new Date(item.lockedUntil) > new Date() ? <div className="font-bold text-red-700">已锁定</div> : <div className="text-slate-500">失败 {item.failedLoginCount || 0} 次</div>}</div></td><td className="px-4 py-3 text-slate-500">{item.passwordChangedAt ? new Date(item.passwordChangedAt).toLocaleString("zh-CN", { hour12: false }) : "未记录"}</td><td className="px-4 py-3 text-slate-500">{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })}</td><td className="px-4 py-3"><div className="flex justify-end gap-1"><button onClick={() => showUserDetail(item)} className="p-2 text-slate-500 hover:text-[#0058bc]" title="查看详情"><Eye className="h-4 w-4" /></button>{canUpdateUser && <button onClick={() => setUserEditor(item)} className="p-2 text-slate-500 hover:text-[#0058bc]" title="编辑"><Pencil className="h-4 w-4" /></button>}{canResetPassword && <button onClick={() => setPasswordUser(item)} className="p-2 text-slate-500 hover:text-[#0058bc]" title="重置密码"><KeyRound className="h-4 w-4" /></button>}{canUnlockUser && item.lockedUntil && <button onClick={async () => { try { await unlockUser(item.userId); setNotice("账号已解锁"); await reload(); } catch (requestError) { setError(getChineseApiError(requestError, "账号解锁失败")); } }} className="p-2 text-slate-500 hover:text-emerald-700" title="解锁账号"><Unlock className="h-4 w-4" /></button>}{canDeleteUser && item.userId !== currentUser?.userId && <button onClick={() => setDeletingUser(item)} className="p-2 text-slate-500 hover:text-red-600" title="删除用户"><Trash2 className="h-4 w-4" /></button>}</div></td></tr>)}</tbody>
             </table>
             {!loading && !users.items.length && <div className="flex h-40 items-center justify-center text-xs text-slate-400">没有符合条件的用户</div>}
           </div>
@@ -392,7 +416,8 @@ const AccessManagement = ({ onExit }) => {
       {userEditor !== undefined && <UserForm user={userEditor} roles={roles} onClose={() => setUserEditor(undefined)} onSaved={() => { setNotice(userEditor ? "用户已更新" : "用户已创建"); reload(); }} />}
       {passwordUser && <PasswordReset user={passwordUser} onClose={() => setPasswordUser(null)} onSaved={setNotice} />}
       {roleEditor !== undefined && <RoleForm role={roleEditor} permissions={permissions} onClose={() => setRoleEditor(undefined)} onSaved={() => { setNotice(roleEditor ? "角色已更新" : "角色已创建"); reload(); }} />}
-      {userDetail && <Modal title="用户详情" subtitle={`${userDetail.user.username} / ${userDetail.user.userId}`} onClose={() => setUserDetail(null)}><div className="space-y-4 p-5">{userDetail.loading ? <p className="text-xs text-slate-500">正在读取用户详情...</p> : <><dl className="grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-400">显示名称</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.displayName}</dd></div><div><dt className="text-slate-400">账号状态</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.enabled ? "启用" : "停用"}</dd></div></dl><div><p className="mb-2 text-xs font-bold text-slate-500">角色</p><div className="flex flex-wrap gap-1.5">{(userDetail.user.roles || []).map((role) => <span key={role} className="rounded bg-slate-100 px-2 py-1 font-mono text-[10px] font-bold text-slate-700">{role}</span>)}</div></div><div><p className="mb-2 text-xs font-bold text-slate-500">权限并集</p><div className="flex flex-wrap gap-1.5">{(userDetail.user.permissions || []).map((permission) => <span key={permission} className="rounded bg-[#eef4fb] px-2 py-1 font-mono text-[10px] font-bold text-[#0058bc]">{permission}</span>)}</div></div></>}{userDetail.error && <p className="rounded-md bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{userDetail.error}</p>}</div></Modal>}
+      {userDetail && <Modal title="用户详情" subtitle={`${userDetail.user.username} / ${userDetail.user.userId}`} onClose={() => setUserDetail(null)}><div className="space-y-4 p-5">{userDetail.loading ? <p className="text-xs text-slate-500">正在读取用户详情...</p> : <><dl className="grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-400">显示名称</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.displayName}</dd></div><div><dt className="text-slate-400">账号状态</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.enabled ? "启用" : "停用"}</dd></div><div><dt className="text-slate-400">首次改密</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.mustChangePassword ? "是" : "否"}</dd></div><div><dt className="text-slate-400">失败次数</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.failedLoginCount || 0}</dd></div><div><dt className="text-slate-400">锁定截止</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.lockedUntil ? new Date(userDetail.user.lockedUntil).toLocaleString("zh-CN", { hour12: false }) : "未锁定"}</dd></div><div><dt className="text-slate-400">密码修改时间</dt><dd className="mt-1 font-bold text-slate-800">{userDetail.user.passwordChangedAt ? new Date(userDetail.user.passwordChangedAt).toLocaleString("zh-CN", { hour12: false }) : "未记录"}</dd></div></dl><div><p className="mb-2 text-xs font-bold text-slate-500">角色</p><div className="flex flex-wrap gap-1.5">{(userDetail.user.roles || []).map((role) => <span key={role} className="rounded bg-slate-100 px-2 py-1 font-mono text-[10px] font-bold text-slate-700">{role}</span>)}</div></div><div><p className="mb-2 text-xs font-bold text-slate-500">权限并集</p><div className="flex flex-wrap gap-1.5">{(userDetail.user.permissions || []).map((permission) => <span key={permission} className="rounded bg-[#eef4fb] px-2 py-1 font-mono text-[10px] font-bold text-[#0058bc]">{permission}</span>)}</div></div></>}{userDetail.error && <p className="rounded-md bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{userDetail.error}</p>}</div></Modal>}
+      {deletingUser && <Modal title="删除用户" subtitle={`目标账号：${deletingUser.username}`} onClose={() => setDeletingUser(null)} width="max-w-md"><div className="p-5"><p className="text-sm text-slate-600">删除后该账号、角色、密码历史和会话将被清理，审计记录会保留。此操作无法撤销。</p><div className="mt-5 flex justify-end gap-2"><button onClick={() => setDeletingUser(null)} className="h-10 px-4 text-xs font-bold text-slate-500">取消</button><button onClick={removeUser} className="h-10 rounded-md bg-red-600 px-5 text-xs font-bold text-white">确认删除</button></div></div></Modal>}
       {deletingRole && <Modal title="删除角色" subtitle={`角色：${deletingRole.roleName}（${deletingRole.roleCode}）`} onClose={() => setDeletingRole(null)} width="max-w-md"><div className="p-5"><p className="text-sm text-slate-600">删除后无法恢复。若仍有用户绑定该角色，后端会拒绝删除。</p><div className="mt-5 flex justify-end gap-2"><button onClick={() => setDeletingRole(null)} className="h-10 px-4 text-xs font-bold text-slate-500">取消</button><button onClick={removeRole} className="h-10 rounded-md bg-red-600 px-5 text-xs font-bold text-white">确认删除</button></div></div></Modal>}
     </main>
   );

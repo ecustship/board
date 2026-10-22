@@ -27,7 +27,10 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import GlobalAlarmBanner from "./components/GlobalAlarmBanner";
 import LoginPage from "./components/LoginPage";
 import AccessManagement from "./components/AccessManagement";
+import BackupManagement from "./components/BackupManagement";
+import AuditManagement from "./components/AuditManagement";
 import ChangePasswordModal from "./components/ChangePasswordModal";
+import ShipSystemStatus from "./ShipSystemStatus";
 import { PERMISSIONS } from "./auth/permissions";
 
 const AUTH_REQUIRED = (process.env.REACT_APP_AUTH_REQUIRED || "true").toLowerCase() === "true";
@@ -278,7 +281,7 @@ const SettingsModal = ({ isOpen, onClose, theme, setTheme }) => {
 };
 
 // Account Modal Component
-const AccountModal = ({ isOpen, onClose, user, onLogout, onChangePassword, onAccessManagement, canManageAccess }) => {
+const AccountModal = ({ isOpen, onClose, user, onLogout, onChangePassword, onAccessManagement, onBackupManagement, onAuditManagement, canManageAccess, canManageBackups, canReadAudits }) => {
   const { t, language } = useLanguage();
   if (!isOpen) return null;
   const isZh = language === "zh";
@@ -316,6 +319,7 @@ const AccountModal = ({ isOpen, onClose, user, onLogout, onChangePassword, onAcc
               <span className="text-2xl font-black text-[#0058bc]">{initials || "AM"}</span>
             </div>
             <h3 className="text-xl font-bold text-white">{displayName}</h3>
+            <p className="text-white/80 text-sm">{isZh ? "用户名" : "Username"}: {user?.username || "—"}</p>
             <p className="text-white/80 text-sm">{roleText}</p>
             <p className="text-white/60 text-xs mt-1">{userId}</p>
           </div>
@@ -330,6 +334,18 @@ const AccountModal = ({ isOpen, onClose, user, onLogout, onChangePassword, onAcc
               <button onClick={() => { onClose(); onAccessManagement(); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 <span className="material-symbols-outlined text-[#4CD7D0]">admin_panel_settings</span>
                 <span className="text-gray-700 dark:text-gray-300 font-medium">{isZh ? "用户与权限管理" : "Users & Permissions"}</span>
+              </button>
+            )}
+            {canReadAudits && (
+              <button onClick={() => { onClose(); onAuditManagement(); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <span className="material-symbols-outlined text-[#4CD7D0]">history</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">{isZh ? "审计日志" : "Audit Logs"}</span>
+              </button>
+            )}
+            {canManageBackups && (
+              <button onClick={() => { onClose(); onBackupManagement(); }} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <span className="material-symbols-outlined text-[#4CD7D0]">backup</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">{isZh ? "系统备份与恢复" : "System Backup & Restore"}</span>
               </button>
             )}
             <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
@@ -478,16 +494,22 @@ const InnerDashboard = () => {
       { key: "trend", label: t.trend, permission: PERMISSIONS.TREND_READ },
       { key: "nautical-charts", label: t.nauticalCharts, permission: PERMISSIONS.CHART_READ },
       { key: "config", label: t.configParameters, permission: PERMISSIONS.CONFIG_POINT_TABLE_READ },
+      { key: "status", label: language === "zh" ? "状态" : "Status" },
     ].filter((item) => !item.permission || hasPermission(item.permission)),
-    [hasPermission, t]
+    [hasPermission, language, t]
   );
 
   useEffect(() => {
-    if (activeView === "access-management" && !hasPermission(PERMISSIONS.USER_READ)) {
-      setActiveView(navButtons[0]?.key || "navigation");
+    const managementPermission = {
+      "access-management": PERMISSIONS.USER_READ,
+      "backup-management": PERMISSIONS.BACKUP_READ,
+      "audit-management": PERMISSIONS.AUDIT_READ,
+    }[activeView];
+    if (managementPermission) {
+      if (!hasPermission(managementPermission)) setActiveView(navButtons[0]?.key || "navigation");
       return;
     }
-    if (activeView !== "access-management" && !navButtons.some((item) => item.key === activeView)) {
+    if (!navButtons.some((item) => item.key === activeView)) {
       setActiveView(navButtons[0]?.key || "navigation");
     }
   }, [activeView, hasPermission, navButtons]);
@@ -617,14 +639,18 @@ const InnerDashboard = () => {
           onLogout={logout}
           onChangePassword={() => setPasswordOpen(true)}
           onAccessManagement={() => setActiveView("access-management")}
+          onBackupManagement={() => setActiveView("backup-management")}
+          onAuditManagement={() => setActiveView("audit-management")}
           canManageAccess={hasPermission(PERMISSIONS.USER_READ)}
+          canManageBackups={hasPermission(PERMISSIONS.BACKUP_READ)}
+          canReadAudits={hasPermission(PERMISSIONS.AUDIT_READ)}
         />
         <SystemPowerConfirmModal
           action={systemPowerAction}
           onClose={() => setSystemPowerAction(null)}
           onConfirm={handleSystemPowerConfirm}
         />
-        <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onChanged={logout} />
+        <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onChanged={logout} username={user?.username || ""} />
         <GlobalAlarmBanner onOpenAlarms={() => setActiveView("alarms")} />
         {systemPowerNotice && (
           <div className="fixed right-4 top-20 z-[75] max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-5 text-amber-900 shadow-xl dark:border-amber-400/20 dark:bg-amber-950/80 dark:text-amber-100">
@@ -635,6 +661,10 @@ const InnerDashboard = () => {
         {/* Main Content */}
         {activeView === "access-management" ? (
           <AccessManagement onExit={() => setActiveView("navigation")} />
+        ) : activeView === "backup-management" ? (
+          <BackupManagement onExit={() => setActiveView("navigation")} />
+        ) : activeView === "audit-management" ? (
+          <AuditManagement onExit={() => setActiveView("navigation")} />
         ) : activeView === "main-engine" ? (
           <MainEngine />
         ) : activeView === "nautical-charts" ? (
@@ -647,6 +677,8 @@ const InnerDashboard = () => {
           <EngineSystems />
         ) : activeView === "config" ? (
           <ConfigPage theme={theme} setTheme={setTheme} />
+        ) : activeView === "status" ? (
+          <ShipSystemStatus />
         ) : (
           <NavigationPage />
         )}
@@ -663,7 +695,7 @@ const InnerDashboard = () => {
 };
 
 const AuthenticatedDashboard = () => {
-  const { isAuthenticated, status } = useAuth();
+  const { isAuthenticated, status, user, logout } = useAuth();
 
   if (AUTH_REQUIRED && status === "validating") {
     return <div className="flex h-[100dvh] items-center justify-center bg-[#f1f3f5] text-sm font-bold text-slate-500">正在验证登录状态...</div>;
@@ -671,6 +703,20 @@ const AuthenticatedDashboard = () => {
 
   if (AUTH_REQUIRED && !isAuthenticated) {
     return <LoginPage />;
+  }
+
+  if (AUTH_REQUIRED && user?.mustChangePassword) {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-[#f1f3f5] px-4">
+        <ChangePasswordModal
+          open
+          required
+          username={user.username}
+          onClose={() => {}}
+          onChanged={logout}
+        />
+      </div>
+    );
   }
 
   return (

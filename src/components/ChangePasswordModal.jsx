@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { KeyRound, X } from "lucide-react";
 import { changeOwnPassword } from "../api/accessManagementApi";
 import { getChineseApiError } from "../api/errorMessages";
+import { validatePasswordPolicy } from "../auth/passwordPolicy";
 
-const ChangePasswordModal = ({ open, onClose, onChanged }) => {
+const ChangePasswordModal = ({ open, onClose, onChanged, required = false, username = "" }) => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -15,8 +16,9 @@ const ChangePasswordModal = ({ open, onClose, onChanged }) => {
   const submit = async (event) => {
     event.preventDefault();
     setError("");
-    if (newPassword.length < 8 || newPassword.length > 64) {
-      setError("新密码需为 8-64 位字符");
+    const policyError = validatePasswordPolicy(username, newPassword);
+    if (policyError) {
+      setError(policyError);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -39,7 +41,7 @@ const ChangePasswordModal = ({ open, onClose, onChanged }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4" onMouseDown={required ? undefined : onClose}>
       <form
         onSubmit={submit}
         onMouseDown={(event) => event.stopPropagation()}
@@ -55,9 +57,7 @@ const ChangePasswordModal = ({ open, onClose, onChanged }) => {
               <p className="text-xs text-slate-500">修改成功后将退出当前账号</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700" title="关闭">
-            <X className="h-5 w-5" />
-          </button>
+          {!required && <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700" title="关闭"><X className="h-5 w-5" /></button>}
         </div>
 
         <div className="space-y-4">
@@ -82,7 +82,7 @@ const ChangePasswordModal = ({ open, onClose, onChanged }) => {
 
         {error && <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{error}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="h-10 px-4 text-xs font-bold text-slate-500">取消</button>
+          {!required && <button type="button" onClick={onClose} className="h-10 px-4 text-xs font-bold text-slate-500">取消</button>}
           <button disabled={submitting} className="h-10 rounded-md bg-[#1a1b1f] px-5 text-xs font-bold text-white disabled:opacity-50">
             {submitting ? "提交中..." : "确认修改"}
           </button>

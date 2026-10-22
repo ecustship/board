@@ -5,6 +5,9 @@ import { useFullscreen } from "./hooks/useFullscreen";
 import { useUnitSystem } from "./hooks/useUnitSystem";
 import { useAuth } from "./hooks/useAuth";
 import { PERMISSIONS } from "./auth/permissions";
+import { validatePointTableImportFile } from "./auth/fileImportPolicy";
+import { useLivePointMapping } from "./api/pointMappingApi";
+import LivePointMappingPanel from "./components/LivePointMappingPanel";
 
 const DEFAULT_MODBUS_CONFIG = {
   protocol: "MODBUS_RTU",
@@ -498,6 +501,7 @@ const ConfigPage = ({ theme: controlledTheme, setTheme: setControlledTheme }) =>
   const [signalTab, setSignalTab] = useState("signals");
   const [signalSearch, setSignalSearch] = useState("");
   const [pointRows, setPointRows] = useState(DEFAULT_SIGNAL_ROWS);
+  const liveMapping = useLivePointMapping(1000);
   const [selectedSignalId, setSelectedSignalId] = useState(DEFAULT_SIGNAL_ROWS[0].id);
   const [modbusConfig, setModbusConfig] = useState(DEFAULT_MODBUS_CONFIG);
   const [pointTableStatus, setPointTableStatus] = useState("draft");
@@ -638,6 +642,11 @@ const ConfigPage = ({ theme: controlledTheme, setTheme: setControlledTheme }) =>
     if (!file) return;
     if (!canImportPointTable) {
       setImportMessage({ type: "error", text: disabledTitle });
+      return;
+    }
+    const fileError = validatePointTableImportFile(file);
+    if (fileError) {
+      setImportMessage({ type: "error", text: fileError });
       return;
     }
 
@@ -854,8 +863,10 @@ const ConfigPage = ({ theme: controlledTheme, setTheme: setControlledTheme }) =>
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex h-full min-h-[620px] flex-col gap-4"
+              className="flex h-full min-h-[620px] flex-col"
             >
+              <LivePointMappingPanel resource={liveMapping} language={language} />
+              <div className="hidden">
               <div className="flex shrink-0 items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-800">
@@ -1321,6 +1332,7 @@ const ConfigPage = ({ theme: controlledTheme, setTheme: setControlledTheme }) =>
                   </div>
                 </div>
               )}
+              </div>
             </motion.div>
           )}
 
